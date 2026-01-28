@@ -1,0 +1,14 @@
+- hosts: k8s-cluster
+  become: true
+  roles:
+    - common
+
+- hosts: control-plane
+  become: true
+  roles:
+    - control_plane
+
+- hosts: workers
+  become: true
+  roles:
+    - workers
