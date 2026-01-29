@@ -23,11 +23,10 @@ variable "ansible_user" {
 variable "ansible_private_key_file" {
   type        = string
   description = "Path to SSH private key for Ansible."
-  default     = "/opt/stack/.ssh/openstack_ed25519"
+  default     = "~/.ssh/id_ed25519"
 }
 
 
-# The only thing you edit to add/remove nodes:
 variable "nodes" {
   description = "Cluster nodes keyed by name."
   type = map(object({
@@ -55,5 +54,5 @@ variable "keypair_name" {
 variable "public_key_path" {
   type        = string
   description = "Path to your SSH public key that will be uploaded to OpenStack."
-  default     = "/opt/stack/.ssh/openstack_ed25519.pub"
+  default     = "~/.ssh/id_ed25519.pub"
 }
