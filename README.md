@@ -54,20 +54,20 @@ git clone https://github.com/dreule28/level3-cloud.git && cp level3-cloud/local.
 
 
 ### 3. Run DevStack
-
+```bash
 cd ~/devstack
-
+```
 #### Modify the HOTS_IP with your own
 ```bash
 nano local.conf
 ```
-
+```bash
 ./stack.sh
-
+```
 Result after successful execution:
-OpenStack services are running locally
-Horizon dashboard is available
-OpenStack CLI can be used from the system
+OpenStack services are running locally.
+Horizon dashboard is available.
+OpenStack CLI can be used from the system.
 
 
 ### 4. Install Terraform
@@ -97,7 +97,7 @@ sudo apt-get install terraform
 ```bash
 terraform -help
 ```
-##### Recommended alias for better usage
+#### Recommended alias for better usage
 ```bash
 alias tfi='terraform init'
 alias tfa='terraform apply -auto-approve'
@@ -105,4 +105,9 @@ alias tfd='terraform destroy -auto-approve'
 alias tfo='terraform output'
 
 source ~/.bashrc <-- after modifying
+```
+After that run 
+```bash
+tfi
+tfa
 ```
