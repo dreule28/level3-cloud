@@ -9,4 +9,6 @@ terraform {
   }
 }
 
-provider "openstack" {}
+provider "openstack" {
+  cloud = "devstack"
+}

@@ -3,6 +3,11 @@ variable "network_name" {
   default = "shared"
 }
 
+variable "external_network_name" {
+  type    = string
+  default = "public"
+}
+
 variable "key_pair" {
   type    = string
   default = "openstack-key"
