@@ -1,9 +1,9 @@
-- hosts: k8s-cluster
+- hosts: k8s_cluster
   become: true
   roles:
     - common
 
-- hosts: control-plane
+- hosts: control_plane
   become: true
   roles:
     - control_plane
