@@ -22,7 +22,7 @@ variable "ssh_allowed_cidr" {
 variable "ansible_user" {
   type        = string
   description = "SSH user Ansible should use (depends on your image)."
-  default     = "debian"
+  default     = "ubuntu"
 }
 
 variable "ansible_private_key_file" {
