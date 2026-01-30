@@ -1,0 +1,30 @@
+---
+# roles/workers/tasks/main.yml
+
+- name: Sanity check - join command is available
+  ansible.builtin.assert:
+    that:
+      - hostvars[groups['control_plane'][0]].kubeadm_join_command is defined
+      - hostvars[groups['control_plane'][0]].kubeadm_join_command | length > 0
+    fail_msg: >
+      kubeadm_join_command is not available from control_plane.
+      Ensure the control_plane role runs before workers in site.yml and that kubeadm init succeeded.
+
+- name: Join worker node to the cluster (only once)
+  ansible.builtin.command: >
+    {{ hostvars[groups['control_plane'][0]].kubeadm_join_command }}
+    --cri-socket=unix:///run/containerd/containerd.sock
+    --node-name={{ inventory_hostname }}
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+
+# Optional: label workers (kubeadm usually labels them automatically as workers via role, but not always)
+- name: Label node as worker (best effort)
+  ansible.builtin.command: >
+    kubectl label node {{ inventory_hostname }} node-role.kubernetes.io/worker=worker --overwrite
+  become: false
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  delegate_to: "{{ groups['control_plane'][0] }}"
+  changed_when: false
+  failed_when: false
