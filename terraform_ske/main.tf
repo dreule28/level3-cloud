@@ -23,12 +23,15 @@ resource "stackit_ske_cluster" "this" {
   node_pools = [
     {
       name                      = "np-1"
-      machine_type              = "g1a.4d"
+      machine_type              = "g1a.2d"
       os_name                   = "ubuntu"
       os_version_min            = "2204.20250728.0"
       minimum                   = 1
       maximum                   = 1
       availability_zones        = ["eu01-1"]
+
+      volume_type = "storage_premium_perf6"
+      volume_size = 100
     }
   ]
 }
