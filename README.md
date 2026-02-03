@@ -1,113 +1,74 @@
-# DevStack – OpenStack Single Node Setup
+# Building a Cloud-Native Platform: From IaaS to PaaS
 
-Minimal setup for running a single-node OpenStack environment using DevStack.
+**Meta-Track**: Infrastructure → Platform → Product
+
+Building a complete cloud platform stack from scratch - starting with OpenStack IaaS, provisioning Kubernetes, and developing a PaaS product with APIs, UI, and observability.
+
+
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Progress](#progress)
+- [Technologies](#technologies)
+
+
+## Architecture
+
+Layered approach from infrastructure to application:
+
+```
+┌─────────────────────────────────────────────────┐
+│         Week 5-6: UI + Observability            │
+│    (Web UI, Ingress, Monitoring, Logging)       │
+├─────────────────────────────────────────────────┤
+│           Week 4: RESTful API Layer             │
+│         (Product Management API)                │
+├─────────────────────────────────────────────────┤
+│        Week 3: PaaS Product on SKE              │
+│    (Operators, CRDs, Managed Services)          │
+├─────────────────────────────────────────────────┤
+│       Week 2: Kubernetes on OpenStack           │
+│      (IaC with Terraform + Ansible)             │
+├─────────────────────────────────────────────────┤
+│        Week 1: IaaS with OpenStack              │
+│           (DevStack Installation)               │
+└─────────────────────────────────────────────────┘
+```
+
+## Progress
+
+### Week 1-2: IaaS Foundations & Kubernetes Provisioning ✓
+
+OpenStack setup with DevStack, Infrastructure as Code with Terraform, automated Kubernetes installation with Ansible.
+
+→ [Detailed documentation](Week_1+2/README.md)
+
+### Week 3: Developing a PaaS Product on SKE (In Progress)
+
+Provisioning SKE cluster with STACKIT Terraform Provider, deploying Kubernetes Operators, implementing managed database service using Custom Resources.
+
+Documentation: `Week_3/README.md` (to be created)
 
 ---
 
-## Overview
+## Technologies
 
-This repository contains:
-- A `local.conf` file for DevStack
-- Instructions to deploy OpenStack on Ubuntu 24.04
-- A small graph visualizing the [![VM Creation Flow](SetupDiagram.svg)](SetupDiagram.svg)
+**Infrastructure**: OpenStack (Nova, Neutron, Cinder, Glance), Terraform, Ansible
 
-The setup is intended for **learning, testing, and development** purposes.
+**Platform**: Kubernetes, STACKIT Kubernetes Engine (SKE), Kubernetes Operators, Custom Resource Definitions
+
+**Planned**: Go APIs, Vue.js UI, PostgreSQL operator, Prometheus, Grafana, Loki
+
+## What You'll Learn
+
+**Infrastructure Management**: OpenStack architecture, VM provisioning, network configuration, storage setup
+
+**Infrastructure as Code**: Terraform workflows, state management, provider orchestration
+
+**Kubernetes**: Cluster architecture, CRDs, Operator pattern, reconciliation loops
+
+**Platform Engineering**: PaaS design, managed services, API-first development, multi-tenancy
+
+**Operations**: CI/CD, GitOps, monitoring, logging, audit trails, performance testing
 
 ---
-
-## System Requirements
-
-- Virtual machine or bare-metal server
-- Ubuntu 24.04 (recommended)
-- Internet access
-- User with `sudo` privileges
-
----
-
-## Installation
-
-### 1. Install Devstack
-
-```bash
-sudo useradd -s /bin/bash -d /opt/stack -m stack
-```
-```bash
-sudo chmod +x /opt/stack
-```
-```bash
-echo "stack ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/stack
-```
-```bash
-sudo -u stack -i
-```
-
-```bash
-git clone https://opendev.org/openstack/devstack
-```
-
-
-### 2. Clone this repo and copy the config file
-
-```bash
-git clone https://github.com/dreule28/level3-cloud.git && cp level3-cloud/local.conf ~/devstack/
-```
-
-
-### 3. Run DevStack
-```bash
-cd ~/devstack
-```
-#### Modify the HOTS_IP with your own
-```bash
-nano local.conf
-```
-```bash
-./stack.sh
-```
-Result after successful execution:
-OpenStack services are running locally.
-Horizon dashboard is available.
-OpenStack CLI can be used from the system.
-
-
-### 4. Install Terraform
-```bash
-sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
-```
-```bash
-wget -O- https://apt.releases.hashicorp.com/gpg | \
-gpg --dearmor | \
-sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
-```
-```bash
-gpg --no-default-keyring \
---keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg \
---fingerprint
-```
-```bash
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-```
-```bash
-sudo apt update
-```
-```bash
-sudo apt-get install terraform
-```
-#### Verify installation
-```bash
-terraform -help
-```
-#### Recommended alias for better usage
-```bash
-alias tfi='terraform init'
-alias tfa='terraform apply -auto-approve'
-alias tfd='terraform destroy -auto-approve'
-alias tfo='terraform output'
-
-source ~/.bashrc <-- after modifying
-```
-After that run 
-```bash
-tfi
-tfa
-```
