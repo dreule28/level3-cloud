@@ -60,8 +60,8 @@ export STACKIT_SERVICE_ACCOUNT_EMAIL="your-email@example.com"
 
 ```bash
 cd Week_3
-terraform init (tfi)
-terraform apply (tfa)
+terraform init
+terraform apply
 ```
 
 **What this creates:**
@@ -198,46 +198,44 @@ kubectl describe cluster pg-demo -n paas-postgres
 ### 2. Get Connection Information
 
 ```bash
-# Get the service
+# List all services
 kubectl get svc -n paas-postgres
 
-# Get credentials (stored in secrets)
-kubectl get secret pg-demo-superuser -n paas-postgres -o jsonpath='{.data.password}' | base64 -d
+# List all secrets created by the operator
+kubectl get secrets -n paas-postgres
+```
+
+**Get the app user password:**
+
+```bash
+kubectl get secret pg-demo-app -n paas-postgres -o jsonpath='{.data.password}' | base64 -d && echo
 ```
 
 ### 3. Connect to PostgreSQL
 
-#### Port-Forward Method
-
-```bash
-kubectl port-forward -n paas-postgres svc/pg-demo-rw 5432:5432
-```
-
-Then connect using `psql`:
-
-```bash
-psql -h localhost -p 5432 -U postgres
-```
-
-#### From Within the Cluster
-
-Deploy a test pod:
+Run an ephemeral psql client pod that auto-deletes when you exit:
 
 ```bash
 kubectl run psql-client --rm -it --image=postgres:16 --namespace paas-postgres -- bash
+```
 
-# Inside the pod
-psql -h pg-demo-rw -U postgres
+Inside the pod, connect to PostgreSQL:
+
+```bash
+# Connect as app user
+psql -h pg-demo-rw -U app -d app
+```
+
+**Alternative: Connect directly to the database pod:**
+
+```bash
+kubectl exec -it pg-demo-1 -n paas-postgres -- psql -U postgres
 ```
 
 ### 4. Test the Database
 
 ```sql
--- Create a test database
-CREATE DATABASE testdb;
-
--- Create a test table
-\c testdb
+-- You're already in the app database, create a test table
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100),
@@ -333,6 +331,37 @@ kubectl delete -f \
 kubectl delete namespace paas-postgres
 ```
 
+---
+
+## Troubleshooting
+
+### Secret Not Found
+
+If you get "secret not found" errors, check what secrets were actually created:
+
+```bash
+kubectl get secrets -n paas-postgres
+```
+
+The operator creates secrets automatically after the cluster is initialized.
+
+### Pod Not Starting
+
+Check pod events:
+
+```bash
+kubectl describe pod pg-demo-1 -n paas-postgres
+```
+
+### Connection Issues
+
+Verify the service exists:
+
+```bash
+kubectl get svc -n paas-postgres pg-demo-rw
+```
+
+---
 
 ## References
 
@@ -342,7 +371,6 @@ kubectl delete namespace paas-postgres
 - [Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
 
 ---
-
 
 ### Recommended Alias Commands
 
