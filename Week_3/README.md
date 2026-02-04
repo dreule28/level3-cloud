@@ -310,6 +310,59 @@ The operator will automatically:
 - Update services
 - Balance the load
 
+### Verify Replication Across All Instances
+
+After scaling, verify all 3 pods are running:
+
+```bash
+kubectl get pods -n paas-postgres
+```
+
+Expected output:
+```
+NAME        READY   STATUS    RESTARTS   AGE
+pg-demo-1   1/1     Running   0          15m
+pg-demo-2   1/1     Running   0          2m
+pg-demo-3   1/1     Running   0          2m
+```
+
+**Prove that all instances have the same data:**
+
+Connect to each pod and query the users table (using postgres user for direct pod access):
+
+```bash
+# Query from pod 1 (primary)
+kubectl exec -it pg-demo-1 -n paas-postgres -- psql -U postgres -d app -c "SELECT * FROM users;"
+
+# Query from pod 2 (replica)
+kubectl exec -it pg-demo-2 -n paas-postgres -- psql -U postgres -d app -c "SELECT * FROM users;"
+
+# Query from pod 3 (replica)
+kubectl exec -it pg-demo-3 -n paas-postgres -- psql -U postgres -d app -c "SELECT * FROM users;"
+```
+
+All three queries should return identical results:
+```
+ id | name  |       email
+----+-------+-------------------
+  1 | Alice | alice@example.com
+  2 | Bob   | bob@example.com
+(2 rows)
+```
+
+**Test write to primary and read from replicas:**
+
+```bash
+# Insert new data
+kubectl exec -it pg-demo-1 -n paas-postgres -- psql -U postgres -d app -c \
+  "INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com');"
+
+# Immediately read from a replica
+kubectl exec -it pg-demo-2 -n paas-postgres -- psql -U postgres -d app -c "SELECT * FROM users;"
+```
+
+You should see the new row replicated across all instances, demonstrating PostgreSQL streaming replication in action!
+
 ---
 
 ## Cleanup
@@ -329,36 +382,6 @@ kubectl delete -f \
 
 # Clean up namespaces
 kubectl delete namespace paas-postgres
-```
-
----
-
-## Troubleshooting
-
-### Secret Not Found
-
-If you get "secret not found" errors, check what secrets were actually created:
-
-```bash
-kubectl get secrets -n paas-postgres
-```
-
-The operator creates secrets automatically after the cluster is initialized.
-
-### Pod Not Starting
-
-Check pod events:
-
-```bash
-kubectl describe pod pg-demo-1 -n paas-postgres
-```
-
-### Connection Issues
-
-Verify the service exists:
-
-```bash
-kubectl get svc -n paas-postgres pg-demo-rw
 ```
 
 ---
