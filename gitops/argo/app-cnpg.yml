@@ -6,10 +6,14 @@ metadata:
 spec:
   project: default
 
-  source:
-    repoURL: https://github.com/dreule28/level3-cloud
-    targetRevision: main
-    path: gitops/apps/cnpg
+source:
+  repoURL: https://cloudnative-pg.github.io/charts
+  chart: cloudnative-pg
+  targetRevision: 0.23.2
+  helm:
+    values: |
+      installCRDs: true
+
 
   destination:
     server: https://kubernetes.default.svc
