@@ -6,13 +6,13 @@ metadata:
 spec:
   project: default
 
-source:
-  repoURL: https://cloudnative-pg.github.io/charts
-  chart: cloudnative-pg
-  targetRevision: 0.23.2
-  helm:
-    values: |
-      installCRDs: true
+  source:
+    repoURL: https://cloudnative-pg.github.io/charts
+    chart: cloudnative-pg
+    targetRevision: 0.23.2
+    helm:
+      values: |
+        installCRDs: true
 
 
   destination:
