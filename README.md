@@ -41,13 +41,13 @@ Layered approach from infrastructure to application:
 
 OpenStack setup with DevStack, Infrastructure as Code with Terraform, automated Kubernetes installation with Ansible.
 
-→ [Detailed documentation](Week_1+2/README.md)
+→ [Documentation](Week_1+2/README.md)
 
 ### Week 3: Developing a PaaS Product on SKE (In Progress)
 
 Provisioning SKE cluster with STACKIT Terraform Provider, deploying Kubernetes Operators, implementing managed database service using Custom Resources.
 
-Documentation: `Week_3/README.md` (to be created)
+→ [Documentation](Week_3/README.md)
 
 ---
 
