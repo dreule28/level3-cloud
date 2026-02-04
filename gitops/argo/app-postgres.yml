@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgres-paas
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/dreule28/level3-cloud
+    targetRevision: main
+    path: gitops/apps/postgres
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: paas-postgres
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
