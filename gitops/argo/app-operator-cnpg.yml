@@ -19,23 +19,23 @@ spec:
     server: https://kubernetes.default.svc
     namespace: cnpg-system
 
-  # ignoreDifferences:
-  #   - group: admissionregistration.k8s.io
-  #     kind: MutatingWebhookConfiguration
-  #     name: cnpg-mutating-webhook-configuration
-  #     jqPathExpressions:
-  #       - .webhooks[].clientConfig.caBundle
-  #   - group: admissionregistration.k8s.io
-  #     kind: ValidatingWebhookConfiguration
-  #     name: cnpg-validating-webhook-configuration
-  #     jqPathExpressions:
-  #       - .webhooks[].clientConfig.caBundle
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      name: cnpg-mutating-webhook-configuration
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: cnpg-validating-webhook-configuration
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
 
-  # syncPolicy:
-  #   automated:
-  #     prune: true
-  #     selfHeal: true
-  #   syncOptions:
-  #     - CreateNamespace=true
-  #     - Replace=true
-  #     - RespectIgnoreDifferences=true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - Replace=true
+      - RespectIgnoreDifferences=true
