@@ -386,6 +386,19 @@ kubectl delete namespace paas-postgres
 
 ---
 
+## Bonus: GitOps with ArgoCD
+
+The `gitops/` directory in the project root contains manifests for managing this PaaS product using GitOps principles with ArgoCD. This demonstrates declarative, Git-based infrastructure and application management.
+
+**What's included:**
+- ArgoCD Application manifests for automated deployment
+- Kubernetes manifests organized for GitOps workflows
+- Will be expanded in later weeks for full GitOps implementation
+
+See [gitops/README.md](../gitops/README.md) for more details.
+
+---
+
 ## References
 
 - [STACKIT Terraform Provider](https://registry.terraform.io/providers/stackitcloud/stackit/latest/docs)
