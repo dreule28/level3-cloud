@@ -5,18 +5,6 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  ignoreDifferences:
-  - group: admissionregistration.k8s.io
-    kind: MutatingWebhookConfiguration
-    name: cnpg-mutating-webhook-configuration
-    jqPathExpressions:
-      - .webhooks[].clientConfig.caBundle
-  - group: admissionregistration.k8s.io
-    kind: ValidatingWebhookConfiguration
-    name: cnpg-validating-webhook-configuration
-    jqPathExpressions:
-      - .webhooks[].clientConfig.caBundle
-
 
   source:
     repoURL: https://cloudnative-pg.github.io/charts
@@ -26,10 +14,21 @@ spec:
       values: |
         installCRDs: true
 
-
   destination:
     server: https://kubernetes.default.svc
     namespace: cnpg-system
+
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      name: cnpg-mutating-webhook-configuration
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: cnpg-validating-webhook-configuration
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
 
   syncPolicy:
     automated:
@@ -38,3 +37,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - Replace=true
+      - RespectIgnoreDifferences=true
