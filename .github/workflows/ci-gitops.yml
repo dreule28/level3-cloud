@@ -18,21 +18,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1) YAML lint (catches syntax + common issues)
+      # 1) YAML lint
       - name: YAML lint
         uses: ibiqlik/action-yamllint@v3
         with:
           file_or_dir: gitops
 
-      # 2) Kubernetes schema validation (catches wrong apiVersion/kind/fields)
+      # 2) Kubernetes schema validation (best-effort)
       - name: Setup kubeconform
         uses: bmuschko/setup-kubeconform@v1
 
-      - name: Validate Kubernetes manifests (kubeconform)
+      - name: Validate K8s manifests (apps/)
         shell: bash
         run: |
           set -euo pipefail
-          # validate *everything* under gitops/apps (your "real" manifests)
           find gitops/apps -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 \
             | xargs -0 -n 1 kubeconform -strict -summary -ignore-missing-schemas
 
+      # 3) ArgoCD Application sanity checks (the important bit)
+      - name: Sanity check ArgoCD Applications
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Ensure expected files exist
+          test -f gitops/argo/app-operator-cnpg.yml
+          test -f gitops/argo/app-product-postgres.yml
+
+          # Check the referenced local path in app-product-postgres.yml exists
+          # Your file points to: gitops/apps/postgres
+          test -d gitops/apps/postgres
+
+          # Basic guardrails: ensure these are Application manifests
+          grep -q '^kind: Application' gitops/argo/app-operator-cnpg.yml
+          grep -q '^kind: Application' gitops/argo/app-product-postgres.yml
+
+          # Guardrail: ensure destination server is in-cluster (optional but consistent)
+          grep -q 'server: https://kubernetes.default.svc' gitops/argo/app-operator-cnpg.yml
+          grep -q 'server: https://kubernetes.default.svc' gitops/argo/app-product-postgres.yml
