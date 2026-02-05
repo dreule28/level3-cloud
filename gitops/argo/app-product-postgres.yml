@@ -8,7 +8,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/dreule28/level3-cloud
+    repoURL: https://github.com/dreule28/level3-cloud.git
     targetRevision: main
     path: gitops/apps/postgres-cluster
 
