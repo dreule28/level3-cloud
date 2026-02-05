@@ -16,8 +16,12 @@ variable "cluster_name" {
   default     = "week3-paas"
 }
 
+variable "project_id" {
+  type        = string
+}
+
 resource "stackit_ske_cluster" "this" {
-  project_id = "6f561559-539c-4f64-9615-88f62f68e3ea"
+  project_id = var.project_id
   name       = var.cluster_name
 
   node_pools = [
