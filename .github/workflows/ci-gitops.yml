@@ -46,8 +46,8 @@ jobs:
           test -f gitops/argo/app-product-postgres.yml
 
           # Check the referenced local path in app-product-postgres.yml exists
-          # Your file points to: gitops/apps/postgres
-          test -d gitops/apps/postgres
+          # Your file points to: gitops/apps/postgres-cluster
+          test -d gitops/apps/postgres-cluster
 
           # Basic guardrails: ensure these are Application manifests
           grep -q '^kind: Application' gitops/argo/app-operator-cnpg.yml
