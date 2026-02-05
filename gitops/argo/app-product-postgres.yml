@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/dreule28/level3-cloud
     targetRevision: main
-    path: gitops/apps/postgres
+    path: gitops/apps/postgres-cluster
 
   destination:
     server: https://kubernetes.default.svc
