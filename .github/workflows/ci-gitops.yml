@@ -1,0 +1,38 @@
+name: CI (GitOps)
+
+on:
+  pull_request:
+    paths:
+      - "gitops/**"
+      - ".github/workflows/ci-gitops.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "gitops/**"
+      - ".github/workflows/ci-gitops.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 1) YAML lint (catches syntax + common issues)
+      - name: YAML lint
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: gitops
+
+      # 2) Kubernetes schema validation (catches wrong apiVersion/kind/fields)
+      - name: Setup kubeconform
+        uses: bmuschko/setup-kubeconform@v1
+
+      - name: Validate Kubernetes manifests (kubeconform)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # validate *everything* under gitops/apps (your "real" manifests)
+          find gitops/apps -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 \
+            | xargs -0 -n 1 kubeconform -strict -summary -ignore-missing-schemas
+
