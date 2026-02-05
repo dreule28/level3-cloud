@@ -96,6 +96,55 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 
 ---
 
+## Continuous Integration (CI)
+
+This GitOps directory is protected by automated CI checks that run on every pull request and push to main. The CI pipeline validates all manifests before they reach the cluster.
+
+### CI Pipeline Steps
+
+Located in [`.github/workflows/ci-gitops.yml`](../.github/workflows/ci-gitops.yml), the pipeline performs three validation stages:
+
+1. **YAML Linting** (`yamllint`)
+   - Validates YAML syntax and formatting
+   - Enforces consistent style (document start markers, line endings, etc.)
+   - Catches common YAML mistakes early
+
+2. **Kubernetes Schema Validation** (`kubeconform`)
+   - Validates manifests against Kubernetes API schemas
+   - Ensures resource definitions are structurally correct
+   - Runs in strict mode with summary output
+   - Ignores missing schemas for CRDs
+
+3. **ArgoCD Application Sanity Checks**
+   - Verifies ArgoCD Application manifests exist
+   - Ensures referenced local paths exist in the repository
+   - Validates Application kind and basic structure
+   - Confirms in-cluster destination server configuration
+
+### Benefits of CI
+
+- **Early error detection**: Catches syntax and schema errors before deployment
+- **Consistency**: Enforces formatting and structural standards
+- **Safety**: Prevents invalid manifests from reaching the cluster
+- **Documentation**: CI checks serve as living documentation of requirements
+- **Confidence**: Pull requests show validation status before merge
+
+### Running Checks Locally
+
+```bash
+# YAML lint
+yamllint gitops/
+
+# Kubernetes validation
+find gitops/apps -type f \( -name '*.yml' -o -name '*.yaml' \) -exec kubeconform -strict {} \;
+
+# Application checks
+test -f gitops/argo/app-operator-cnpg.yml && test -f gitops/argo/app-product-postgres.yml
+test -d gitops/apps/postgres-cluster
+```
+
+---
+
 ## GitOps Workflow
 
 1. **Make changes**: Edit manifests in this directory
