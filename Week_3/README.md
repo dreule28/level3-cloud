@@ -97,9 +97,15 @@ kubectl get nodes
 #### 1. Install the CloudNativePG Operator
 
 ```bash
-# Install the operator directly from the official release manifest
-kubectl apply --server-side -f \
-  https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.28/releases/cnpg-1.28.0.yaml
+# Add the CloudNativePG Helm repository
+helm repo add cnpg https://cloudnative-pg.github.io/charts
+helm repo update
+
+# Install the operator using Helm
+helm install cnpg \
+  --namespace cnpg-system \
+  --create-namespace \
+  cnpg/cloudnative-pg
 ```
 
 **What this does:**
@@ -376,12 +382,12 @@ kubectl delete -f pg-demo.yml
 ### Uninstall Operator
 
 ```bash
-# Delete the operator manifest
-kubectl delete -f \
-  https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.28/releases/cnpg-1.28.0.yaml
+# Uninstall the Helm release
+helm uninstall cnpg -n cnpg-system
 
 # Clean up namespaces
 kubectl delete namespace paas-postgres
+kubectl delete namespace cnpg-system
 ```
 
 ---
