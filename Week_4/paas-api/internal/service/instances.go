@@ -12,6 +12,7 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,7 +32,7 @@ func deriveStatus(c *cnpgv1.Cluster) string {
 	case strings.Contains(phase, "error") || strings.Contains(phase, "fail"):
 		return "error"
 	default:
-		return "creating "
+		return "creating"
 	}
 }
 
@@ -89,6 +90,38 @@ func (s *InstanceService) Get(ctx context.Context, id string) (model.InstanceDet
 	return out, nil
 }
 
+func (s *InstanceService) Create(ctx context.Context, req model.CreateInstanceRequest) (model.Instance, error) {
+	cluster := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "postgresql.cnpg.io/v1",
+			"kind":       "Cluster",
+			"metadata": map[string]any{
+				"name":      req.ID,
+				"namespace": s.cfg.Namespace,
+				"labels": map[string]any{
+					"paas.stackit.dev/managed": "true",
+				},
+			},
+			"spec": map[string]any{
+				"instances": req.Instances,
+				"storage": map[string]any{
+					"size": fmt.Sprintf("%dGi", req.StorageGi),
+				},
+			},
+		},
+	}
+
+	if err := s.k.K8sClient.Create(ctx, cluster); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return model.Instance{}, fmt.Errorf("instance %q already exists", req.ID)
+		}
+		return	model.Instance{}, err
+	}
+	return model.Instance{
+		ID:		req.ID,
+		Status:	"creating",
+	}, nil
+}
 
 
 

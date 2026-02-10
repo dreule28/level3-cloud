@@ -19,3 +19,9 @@ type InstanceDetails struct {
 	Status		string			`json:"status"`
 	Connection	*ConnectionInfo	`json:"connection,omitempty"`
 }
+
+type CreateInstanceRequest struct {
+	ID			string	`json:"id"`
+	Instances	int		`json:"instances"`
+	StorageGi	int		`json:"storageGi"`
+}
