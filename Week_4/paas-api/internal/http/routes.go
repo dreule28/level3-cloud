@@ -14,4 +14,5 @@ func RegisterRoutes(e *echo.Echo, svc *service.InstanceService) {
 
 	g := e.Group("/instances")
 	g.GET("", h.List)
+	g.GET("/:id", h.Get)
 }

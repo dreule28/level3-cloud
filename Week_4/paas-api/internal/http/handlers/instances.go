@@ -20,6 +20,16 @@ func (h *InstancesHandler) List(c echo.Context) error {
 	return c.JSON(http.StatusOK, items)
 }
 
+func (h *InstancesHandler) Get(c echo.Context) error {
+	id := c.Param("id")
+
+	out, err := h.svc.Get(c.Request().Context(), id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
 func NewInstanceHandler(svc *service.InstanceService) *InstancesHandler {
 	return &InstancesHandler{svc: svc}
 }
