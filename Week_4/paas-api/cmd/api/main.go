@@ -26,7 +26,7 @@ func main() {
 	svc := service.NewInstanceService(cfg, k8sclient)
 
 	e := echo.New()
-	e.Use(middleware.Logger()) 
+	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
 	http.RegisterRoutes(e, svc)
