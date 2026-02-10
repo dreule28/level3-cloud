@@ -16,4 +16,5 @@ func RegisterRoutes(e *echo.Echo, svc *service.InstanceService) {
 	g.GET("", h.List)
 	g.GET("/:id", h.Get)
 	g.POST("", h.Create)
+	g.DELETE("/:id", h.Delete)
 }

@@ -53,6 +53,18 @@ func (h *InstancesHandler) Create(c echo.Context) error {
 	return c.JSON(http.StatusAccepted, out)
 }
 
+func (h *InstancesHandler) Delete(c echo.Context) error {
+	id := c.Param("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
+	}
+
+	if err := h.svc.Delete(c.Request().Context(), id); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
 func NewInstanceHandler(svc *service.InstanceService) *InstancesHandler {
 	return &InstancesHandler{svc: svc}
 }

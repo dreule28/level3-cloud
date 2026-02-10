@@ -123,7 +123,21 @@ func (s *InstanceService) Create(ctx context.Context, req model.CreateInstanceRe
 	}, nil
 }
 
+func (s *InstanceService) Delete(ctx context.Context, id string) error {
+	obj := &unstructured.Unstructured{}
+	obj.SetAPIVersion("postgresql.cnpg.io/v1")
+	obj.SetKind("Cluster")
+	obj.SetName(id)
+	obj.SetNamespace(s.cfg.Namespace)
 
+	if err := s.k.K8sClient.Delete(ctx, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			return	fmt.Errorf("instance %q not found", id)
+		}
+		return err
+	}
+	return nil
+}
 
 func NewInstanceService(cfg config.Config, k *kube.Client) *InstanceService {
 	return &InstanceService{cfg: cfg, k: k}
