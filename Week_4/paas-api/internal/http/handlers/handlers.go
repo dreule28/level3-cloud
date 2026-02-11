@@ -13,7 +13,7 @@ type InstancesHandler struct {
 }
 
 func (h *InstancesHandler) List(c echo.Context) error {
-	items, err := h.svc.List(c.Request().Context())
+	items, err := h.svc.ListDatabases(c.Request().Context())
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -23,7 +23,7 @@ func (h *InstancesHandler) List(c echo.Context) error {
 func (h *InstancesHandler) Get(c echo.Context) error {
 	id := c.Param("id")
 
-	out, err := h.svc.Get(c.Request().Context(), id)
+	out, err := h.svc.GetDatabase(c.Request().Context(), id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -46,7 +46,7 @@ func (h *InstancesHandler) Create(c echo.Context) error {
 		req.StorageGi = 10
 	}
 
-	out, err := h.svc.Create(c.Request().Context(), req)
+	out, err := h.svc.CreateDatabase(c.Request().Context(), req)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -59,7 +59,7 @@ func (h *InstancesHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
 
-	if err := h.svc.Delete(c.Request().Context(), id); err != nil {
+	if err := h.svc.DeleteDatabase(c.Request().Context(), id); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.NoContent(http.StatusNoContent)

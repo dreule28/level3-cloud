@@ -22,7 +22,7 @@ type InstanceService struct {
 	k   *kube.Client
 }
 
-func deriveStatus(c *cnpgv1.Cluster) string {
+func getStatus(c *cnpgv1.Cluster) string {
 	phase := strings.ToLower(strings.TrimSpace(c.Status.Phase))
 	switch {
 	case phase == "":
@@ -36,7 +36,7 @@ func deriveStatus(c *cnpgv1.Cluster) string {
 	}
 }
 
-func (s *InstanceService) List(ctx context.Context) ([]model.Instance, error) {
+func (s *InstanceService) ListDatabases(ctx context.Context) ([]model.Instance, error) {
 	var clusters cnpgv1.ClusterList
 	if err := s.k.K8sClient.List(ctx, &clusters, client.InNamespace(s.cfg.Namespace)); err != nil {
 		return nil, err
@@ -45,13 +45,13 @@ func (s *InstanceService) List(ctx context.Context) ([]model.Instance, error) {
 	for _, c := range clusters.Items {
 		out = append(out, model.Instance{
 			ID:     c.Name,
-			Status: deriveStatus(&c),
+			Status: getStatus(&c),
 		})
 	}
 	return out, nil
 }
 
-func (s *InstanceService) Get(ctx context.Context, id string) (model.InstanceDetails, error) {
+func (s *InstanceService) GetDatabase(ctx context.Context, id string) (model.InstanceDetails, error) {
 	//get CR
 	var cluster cnpgv1.Cluster
 	if err := s.k.K8sClient.Get(ctx, types.NamespacedName{
@@ -63,7 +63,7 @@ func (s *InstanceService) Get(ctx context.Context, id string) (model.InstanceDet
 		}
 		return model.InstanceDetails{}, err
 	}
-	status := deriveStatus(&cluster)
+	status := getStatus(&cluster)
 	out := model.InstanceDetails{
 		ID:     id,
 		Status: status,
@@ -100,7 +100,7 @@ func (s *InstanceService) Get(ctx context.Context, id string) (model.InstanceDet
 	return out, nil
 }
 
-func (s *InstanceService) Create(ctx context.Context, req model.CreateInstanceRequest) (model.Instance, error) {
+func (s *InstanceService) CreateDatabase(ctx context.Context, req model.CreateInstanceRequest) (model.Instance, error) {
 	cluster := &cnpgv1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.ID,
@@ -129,7 +129,7 @@ func (s *InstanceService) Create(ctx context.Context, req model.CreateInstanceRe
 	}, nil
 }
 
-func (s *InstanceService) Delete(ctx context.Context, id string) error {
+func (s *InstanceService) DeleteDatabase(ctx context.Context, id string) error {
 	cluster := &cnpgv1.Cluster{}
 	cluster.Name = id
 	cluster.Namespace = s.cfg.Namespace
