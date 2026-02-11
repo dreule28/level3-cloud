@@ -9,7 +9,11 @@ import (
 )
 
 type InstancesHandler struct {
-	svc *service.InstanceService
+	svc service.InstanceAPI
+}
+
+func NewInstanceHandler(svc service.InstanceAPI) *InstancesHandler {
+	return &InstancesHandler{svc: svc}
 }
 
 func (h *InstancesHandler) List(c echo.Context) error {
@@ -63,8 +67,4 @@ func (h *InstancesHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.NoContent(http.StatusNoContent)
-}
-
-func NewInstanceHandler(svc *service.InstanceService) *InstancesHandler {
-	return &InstancesHandler{svc: svc}
 }

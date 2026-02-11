@@ -18,8 +18,12 @@ import (
 )
 
 type InstanceService struct {
-	cfg config.Config
-	k   *kube.Client
+	cfg	config.Config
+	k	*kube.Client
+}
+
+func NewInstanceService(cfg config.Config, k *kube.Client) *InstanceService {
+	return &InstanceService{cfg: cfg, k: k}
 }
 
 func getStatus(c *cnpgv1.Cluster) string {
@@ -143,6 +147,3 @@ func (s *InstanceService) DeleteDatabase(ctx context.Context, id string) error {
 	return nil
 }
 
-func NewInstanceService(cfg config.Config, k *kube.Client) *InstanceService {
-	return &InstanceService{cfg: cfg, k: k}
-}

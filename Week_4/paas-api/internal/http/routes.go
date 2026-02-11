@@ -7,7 +7,7 @@ import (
 	"github.com/dreule28/Week_4/paas-api/internal/service"
 )
 
-func RegisterRoutes(e *echo.Echo, svc *service.InstanceService) {
+func RegisterRoutes(e *echo.Echo, svc service.InstanceAPI) {
 	h := handlers.NewInstanceHandler(svc)
 
 	e.GET("/healthz", func(c echo.Context) error { return c.String(200, "You're amazin") })
