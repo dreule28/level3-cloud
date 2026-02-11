@@ -1,0 +1,319 @@
+openapi: 3.0.3
+info:
+  title: PaaS PostgreSQL API
+  description: |
+    RESTful API for provisioning and managing PostgreSQL instances as a service.
+    This API provides endpoints for creating, listing, retrieving, and deleting PostgreSQL database instances.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.paas.example.com
+    description: Production server
+
+tags:
+  - name: instances
+    description: PostgreSQL instance management operations
+  - name: health
+    description: Health check endpoints
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      description: Returns the health status of the API service
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: You're amazin
+
+  /instances:
+    get:
+      summary: List all instances
+      description: Retrieves a list of all PostgreSQL instances
+      operationId: listInstances
+      tags:
+        - instances
+      responses:
+        '200':
+          description: Successfully retrieved list of instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Instance'
+              example:
+                - id: pg-demo
+                  status: ready
+                - id: pg-prod
+                  status: creating
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a new instance
+      description: Creates a new PostgreSQL instance with the specified configuration
+      operationId: createInstance
+      tags:
+        - instances
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+            examples:
+              basic:
+                summary: Basic instance
+                value:
+                  id: pg-demo
+                  instances: 1
+                  storageGi: 10
+              ha-instance:
+                summary: High availability instance
+                value:
+                  id: pg-prod
+                  instances: 3
+                  storageGi: 100
+      responses:
+        '202':
+          description: Instance creation accepted and in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+              example:
+                id: pg-demo
+                status: creating
+        '400':
+          description: Invalid request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing-id:
+                  summary: Missing ID
+                  value:
+                    error: id is required
+                invalid-json:
+                  summary: Invalid JSON
+                  value:
+                    error: invalid json
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /instances/{id}:
+    get:
+      summary: Get instance details
+      description: Retrieves detailed information about a specific PostgreSQL instance including connection information
+      operationId: getInstance
+      tags:
+        - instances
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the instance
+          schema:
+            type: string
+          example: pg-demo
+      responses:
+        '200':
+          description: Successfully retrieved instance details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceDetails'
+              example:
+                id: pg-demo
+                status: ready
+                connection:
+                  host: pg-demo-rw.postgres.svc.cluster.local
+                  port: 5432
+                  database: app
+                  user: app
+                  password: supersecret123
+                  endpoint: postgresql://app:supersecret123@pg-demo-rw.postgres.svc.cluster.local:5432/app
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete an instance
+      description: Deletes a PostgreSQL instance and all associated resources
+      operationId: deleteInstance
+      tags:
+        - instances
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the instance to delete
+          schema:
+            type: string
+          example: pg-demo
+      responses:
+        '204':
+          description: Instance successfully deleted
+        '400':
+          description: Invalid request - ID required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: id is required
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Instance:
+      type: object
+      description: Basic instance information
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the instance
+          example: pg-demo
+        status:
+          type: string
+          description: Current status of the instance
+          enum:
+            - creating
+            - ready
+            - deleting
+            - error
+          example: ready
+
+    ConnectionInfo:
+      type: object
+      description: Connection details for accessing the PostgreSQL instance
+      required:
+        - host
+        - port
+        - database
+        - user
+        - password
+        - endpoint
+      properties:
+        host:
+          type: string
+          description: Hostname or service name for the database
+          example: pg-demo-rw.postgres.svc.cluster.local
+        port:
+          type: integer
+          description: Port number for database connections
+          example: 5432
+        database:
+          type: string
+          description: Name of the database
+          example: app
+        user:
+          type: string
+          description: Username for database access
+          example: app
+        password:
+          type: string
+          description: Password for database access
+          format: password
+          example: supersecret123
+        endpoint:
+          type: string
+          description: Full connection string URI
+          example: postgresql://app:supersecret123@pg-demo-rw.postgres.svc.cluster.local:5432/app
+
+    InstanceDetails:
+      type: object
+      description: Detailed instance information including connection details
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the instance
+          example: pg-demo
+        status:
+          type: string
+          description: Current status of the instance
+          enum:
+            - creating
+            - ready
+            - deleting
+            - error
+          example: ready
+        connection:
+          $ref: '#/components/schemas/ConnectionInfo'
+
+    CreateInstanceRequest:
+      type: object
+      description: Request payload for creating a new PostgreSQL instance
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the new instance (must be DNS-compliant)
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          minLength: 1
+          maxLength: 63
+          example: pg-demo
+        instances:
+          type: integer
+          description: Number of PostgreSQL instances (for high availability)
+          minimum: 1
+          maximum: 10
+          default: 1
+          example: 3
+        storageGi:
+          type: integer
+          description: Storage size in GiB per instance
+          minimum: 1
+          maximum: 1000
+          default: 10
+          example: 100
+
+    Error:
+      type: object
+      description: Error response
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
+          example: Internal server error occurred
