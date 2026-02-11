@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/dreule28/Week_4/paas-api/internal/model"
 	"github.com/dreule28/Week_4/paas-api/internal/service"
@@ -29,6 +30,9 @@ func (h *InstancesHandler) Get(c echo.Context) error {
 
 	out, err := h.svc.GetDatabase(c.Request().Context(), id)
 	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, out)
