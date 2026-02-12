@@ -1,0 +1,25 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: paas-api-k6
+  namespace: paas-api
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:latest
+          env:
+            - name: BASE_URL
+              value: "http://paas-api.paas-api.svc.cluster.local"
+          command: ["k6", "run", "/scripts/k6.js"]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: paas-api-k6-script
