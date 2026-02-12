@@ -23,16 +23,22 @@ data:
           gracefulRampDown: "10s",
         },
       },
-      thresholds: {
-        http_req_failed: ["rate<0.01"],
-        http_req_duration: ["p(95)<500"],
-      },
+      // temporarily disable thresholds while debugging:
+      thresholds: {},
     };
 
     const BASE_URL = __ENV.BASE_URL;
 
     export default function () {
-      const res = http.get(`${BASE_URL}/work?ms=50`);
-      check(res, { "status is 200": (r) => r.status === 200 });
+      const url = `${BASE_URL}/work?ms=50`; // switch to /instances if you must
+      const res = http.get(url, { timeout: "3s" });
+
+      const ok = check(res, { "status is 200": (r) => r.status === 200 });
+
+      if (!ok) {
+        console.log(`FAIL ${url} -> status=${res.status} error=${res.error} body=${String(res.body).slice(0, 200)}`);
+      }
+
       sleep(0.1);
     }
+

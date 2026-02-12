@@ -20,8 +20,8 @@ spec:
         runAsNonRoot: true
       containers:
         - name: api
-          image: registry.onstackit.cloud/scr-daniel/paas-api:latest
-          imagePullPolicy: IfNotPresent
+          image: registry.onstackit.cloud/scr-daniel/paas-api:ea7991f
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           securityContext:

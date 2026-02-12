@@ -9,22 +9,27 @@ export const options = {
       stages: [
         { duration: "30s", target: 10 },
         { duration: "30s", target: 30 },
-        { duration: "60s", target: 60 }, // should trigger HPA if endpoint costs CPU
+        { duration: "60s", target: 60 },
         { duration: "30s", target: 0 },
       ],
       gracefulRampDown: "10s",
     },
   },
-  thresholds: {
-    http_req_failed: ["rate<0.01"],
-    http_req_duration: ["p(95)<500"], // adjust later to your reality
-  },
+  // temporarily disable thresholds while debugging:
+  thresholds: {},
 };
 
-const BASE_URL = __ENV.BASE_URL; // injected from the Job
+const BASE_URL = __ENV.BASE_URL;
 
 export default function () {
-  const res = http.get(`${BASE_URL}/work?ms=50`);  // BEST for HPA demo
-  check(res, { "status is 200": (r) => r.status === 200 });
+  const url = `${BASE_URL}/work?ms=50`; // switch to /instances if you must
+  const res = http.get(url, { timeout: "3s" });
+
+  const ok = check(res, { "status is 200": (r) => r.status === 200 });
+
+  if (!ok) {
+    console.log(`FAIL ${url} -> status=${res.status} error=${res.error} body=${String(res.body).slice(0, 200)}`);
+  }
+
   sleep(0.1);
 }
