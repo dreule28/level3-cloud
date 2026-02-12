@@ -5,7 +5,7 @@ metadata:
   name: paas-api-hpa
   namespace: paas-api
 spec:
-  scaleTargetRef: # who to watch
+  scaleTargetRef:  # who to watch
     apiVersion: apps/v1
     kind: Deployment
     name: paas-api
@@ -13,31 +13,31 @@ spec:
   minReplicas: 1
   maxReplicas: 10
 
-  metrics: # desiredReplicas =[currentReplicas * (currentMetricValue / targetMetricValue)]
+  metrics:  # desiredReplicas =[currentReplicas * (currentMetricValue / targetMetricValue)]
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 70 # scales up if above 70%, scales down if below
+          averageUtilization: 70  # scales up if above 70%, scales down if below
 
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80 # scales up if above 80%, scales down if below
+          averageUtilization: 80  # scales up if above 80%, scales down if below
 
-  behavior: # scaling speed
+  behavior:  # scaling speed
     scaleDown:
-      stabilizationWindowSeconds: 300 # wait 5 min before scaling down by 50% every 60s
+      stabilizationWindowSeconds: 300  # wait 5 min before scaling down by 50% every 60s
       policies:
         - type: Percent
           value: 50
           periodSeconds: 60
 
     scaleUp:
-      stabilizationWindowSeconds: 0 # instantly double the pods every 30s
+      stabilizationWindowSeconds: 0  # instantly double the pods every 30s
       policies:
         - type: Percent
           value: 100
