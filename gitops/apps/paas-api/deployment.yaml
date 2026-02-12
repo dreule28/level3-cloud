@@ -1,0 +1,29 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paas-api
+  namespace: paas-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: paas-api
+  template:
+    metadata:
+      labels:
+        app: paas-api
+    spec:
+      imagePullSecrets:
+        - name: scr-pull
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: api
+          image: registry.onstackit.cloud/scr-daniel/paas-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
