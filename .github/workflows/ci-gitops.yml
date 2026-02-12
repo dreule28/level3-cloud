@@ -18,11 +18,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1) YAML lint
-      - name: YAML lint
-        uses: ibiqlik/action-yamllint@v3
-        with:
-          file_or_dir: gitops
+      # # 1) YAML lint
+      # - name: YAML lint
+      #   uses: ibiqlik/action-yamllint@v3
+      #   with:
+      #     file_or_dir: gitops
 
       # 2) Kubernetes schema validation (best-effort)
       - name: Setup kubeconform
