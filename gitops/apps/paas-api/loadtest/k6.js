@@ -24,7 +24,7 @@ export const options = {
 const BASE_URL = __ENV.BASE_URL; // injected from the Job
 
 export default function () {
-  const res = http.get(`${BASE_URL}/instances?ms=50`); // BEST for HPA demo
+  const res = http.get(`${BASE_URL}/work?ms=50`);  // BEST for HPA demo
   check(res, { "status is 200": (r) => r.status === 200 });
   sleep(0.1);
 }
