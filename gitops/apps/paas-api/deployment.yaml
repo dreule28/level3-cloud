@@ -5,7 +5,7 @@ metadata:
   name: paas-api
   namespace: paas-api
 spec:
-  replicas: 1
+  # replicas: 1
   selector:
     matchLabels:
       app: paas-api
