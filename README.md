@@ -43,11 +43,21 @@ OpenStack setup with DevStack, Infrastructure as Code with Terraform, automated 
 
 → [Documentation](Week_1+2/README.md)
 
-### Week 3: Developing a PaaS Product on SKE (In Progress)
+### Week 3: Developing a PaaS Product on SKE ✓
 
 Provisioning SKE cluster with STACKIT Terraform Provider, deploying Kubernetes Operators, implementing managed database service using Custom Resources.
 
 → [Documentation](Week_3/README.md)
+
+### Week 4: Provisioning and Interaction via RESTful API ✓
+
+Building production-ready RESTful API for PaaS product management with OpenAPI specification, unit tests, containerization, GitOps deployment, and auto-scaling with HPA.
+
+→ [Documentation](Week_4/README.md)
+
+### Week 5-6: UI + Observability (Planned)
+
+Web UI development with Vue.js, Ingress configuration, monitoring with Prometheus and Grafana, centralized logging with Loki.
 
 ---
 
@@ -57,7 +67,9 @@ Provisioning SKE cluster with STACKIT Terraform Provider, deploying Kubernetes O
 
 **Platform**: Kubernetes, STACKIT Kubernetes Engine (SKE), Kubernetes Operators, Custom Resource Definitions
 
-**Planned**: Go APIs, Vue.js UI, PostgreSQL operator, Prometheus, Grafana, Loki
+**Development**: Go RESTful APIs, Docker, OpenAPI, k6 Performance Testing, Horizontal Pod Autoscaler
+
+**Planned**: Vue.js UI, Ingress, Prometheus, Grafana, Loki
 
 ## What You'll Learn
 
