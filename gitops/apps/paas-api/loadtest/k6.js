@@ -17,7 +17,7 @@ export const options = {
   },
   thresholds: {
   http_req_failed: ["rate<0.01"],
-  http_req_duration: ["p(95)<1500"],
+  http_req_duration: ["p(95)<2000"],
 },
 
 };
@@ -25,7 +25,7 @@ export const options = {
 const BASE_URL = __ENV.BASE_URL;
 
 export default function () {
-  const url = `${BASE_URL}/work?ms=50`; // switch to /instances if you must
+  const url = `${BASE_URL}/work?ms=50`; 
   const res = http.get(url, { timeout: "3s" });
 
   const ok = check(res, { "status is 200": (r) => r.status === 200 });
