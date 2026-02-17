@@ -1,0 +1,26 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paas-ui
+  namespace: paas-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: paas-ui
+  template:
+    metadata:
+      labels:
+        app: paas-ui
+    spec:
+      imagePullSecrets:
+        - name: scr-pull
+      containers:
+        - name: ui
+          image: registry.onstackit.cloud/scr-daniel/paas-ui:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          securityContext:
+            allowPrivilegeEscalation: false
