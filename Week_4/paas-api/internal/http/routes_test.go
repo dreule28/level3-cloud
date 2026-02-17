@@ -10,6 +10,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/dreule28/Week_4/paas-api/internal/config"
 	myhttp "github.com/dreule28/Week_4/paas-api/internal/http"
 	"github.com/dreule28/Week_4/paas-api/internal/model"
 	"github.com/dreule28/Week_4/paas-api/internal/service"
@@ -56,7 +57,8 @@ func TestHealthz_OK(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	myhttp.RegisterRoutes(e, svc)
+	cfg := config.Config{}
+	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -87,7 +89,8 @@ func TestGetInstance_Route_OK(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	myhttp.RegisterRoutes(e, svc)
+	cfg := config.Config{}
+	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/instances/pg-demo", nil)
 	rec := httptest.NewRecorder()
@@ -121,7 +124,8 @@ func TestPostInstances_Route_Accepted(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	myhttp.RegisterRoutes(e, svc)
+	cfg := config.Config{}
+	myhttp.RegisterRoutes(e, svc, cfg)
 
 	body := `{"id":"pg-new","instances":1,"storageGi":10}`
 	req := httptest.NewRequest(http.MethodPost, "/instances", strings.NewReader(body))
@@ -160,7 +164,8 @@ func TestDeleteInstances_Route_NoContent(t *testing.T) {
 		},
 	}
 
-	myhttp.RegisterRoutes(e, svc)
+	cfg := config.Config{}
+	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodDelete, "/instances/pg-del", nil)
 	rec := httptest.NewRecorder()
@@ -198,7 +203,8 @@ func TestListInstances_Route_EmptyArray(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	myhttp.RegisterRoutes(e, svc)
+	cfg := config.Config{}
+	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/instances", nil)
 	rec := httptest.NewRecorder()
@@ -234,7 +240,8 @@ func TestGetInstance_Route_NotFound(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	myhttp.RegisterRoutes(e, svc)
+	cfg := config.Config{}
+	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/instances/does-not-exist", nil)
 	rec := httptest.NewRecorder()
@@ -275,7 +282,8 @@ func TestGetInstance_Route_ConnectionInfo(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	myhttp.RegisterRoutes(e, svc)
+	cfg := config.Config{}
+	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/instances/pg-demo", nil)
 	rec := httptest.NewRecorder()
