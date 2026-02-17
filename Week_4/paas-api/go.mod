@@ -4,6 +4,7 @@ go 1.25.7
 
 require (
 	github.com/cloudnative-pg/cloudnative-pg v1.28.1
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/labstack/echo/v4 v4.15.0
 	k8s.io/api v0.35.0
 	k8s.io/apimachinery v0.35.0

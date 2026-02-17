@@ -7,11 +7,13 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/dreule28/Week_4/paas-api/internal/config"
+	"github.com/dreule28/Week_4/paas-api/internal/http/auth"
 	"github.com/dreule28/Week_4/paas-api/internal/http/handlers"
 	"github.com/dreule28/Week_4/paas-api/internal/service"
 )
 
-func RegisterRoutes(e *echo.Echo, svc service.InstanceAPI) {
+func RegisterRoutes(e *echo.Echo, svc service.InstanceAPI, cfg config.Config) {
 	h := handlers.NewInstanceHandler(svc)
 
 	e.GET("/healthz", func(c echo.Context) error {
@@ -43,9 +45,28 @@ func RegisterRoutes(e *echo.Echo, svc service.InstanceAPI) {
 		})
 	})
 
-	g := e.Group("/instances")
-	g.GET("", h.List)
-	g.GET("/:id", h.Get)
-	g.POST("", h.Create)
-	g.DELETE("/:id", h.Delete)
+	authCfg := auth.Config{
+		AuthUser:		cfg.AuthUser,
+		AuthPass:		cfg.AuthPass,
+		JWTSecret:		[]byte(cfg.JWTSecret),
+		JWTIssuer:		cfg.JWTIssuer,
+		JWTAudience:	cfg.JWTAudience,
+		JWTTL:			cfg.JWTTL,
+	}
+
+	// Auth endpoints
+	auth.RegisterAuthRoutes(e, authCfg)
+
+	// Protected routes
+	protected := e.Group("")
+	protected.Use(auth.RequireJWT(authCfg))
+
+	instances := protected.Group("/instances")
+	instances.GET("", h.List)
+	instances.GET("/:id", h.Get)
+
+	admin := instances.Group("")
+	admin.Use(auth.RequireRole("admin"))
+	admin.POST("", h.Create)
+	admin.DELETE("/:id", h.Delete)
 }

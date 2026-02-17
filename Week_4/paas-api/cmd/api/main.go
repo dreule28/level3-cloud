@@ -7,8 +7,6 @@ import (
 	"github.com/dreule28/Week_4/paas-api/internal/http"
 	"github.com/dreule28/Week_4/paas-api/internal/kube"
 	"github.com/dreule28/Week_4/paas-api/internal/service"
-	// "sigs.k8s.io/controller-runtime/pkg/client"
-	// "sigs.k8s.io/controller-runtime/pkg/config"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -30,10 +28,11 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
+		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE, echo.OPTIONS},
+		AllowHeaders: []string{echo.HeaderAuthorization, echo.HeaderContentType},
 	}))
 
-	http.RegisterRoutes(e, svc)
+	http.RegisterRoutes(e, svc, cfg)
 
-	log.Fatal(e.Start(":8080"))
+	log.Fatal(e.Start(cfg.Addr))
 }
