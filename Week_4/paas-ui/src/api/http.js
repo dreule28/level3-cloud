@@ -1,4 +1,4 @@
-const API_BASE = ""; // empty because we use Vite proxy (/api -> backend)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 export function getToken() {
   return localStorage.getItem("access_token");
