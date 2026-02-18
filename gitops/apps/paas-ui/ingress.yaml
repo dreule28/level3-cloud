@@ -17,7 +17,7 @@ spec:
     - host: daniel-paas.stackit.gg
       http:
         paths:
-          - path: /api(/|$)(.*)
+          - path: /
             pathType: ImplementationSpecific
             backend:
               service:
