@@ -6,8 +6,13 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - daniel-paas.stackit.gg
+      secretName: daniel-paas-tls
   rules:
     - host: daniel-paas.stackit.gg
       http:
