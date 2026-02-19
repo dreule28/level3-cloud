@@ -10,7 +10,7 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 # copy everything from local to workdir
-COPY paas-api/ .
+COPY . .
 
 # build the binary with caching for faster rebuilds
 RUN --mount=type=cache,target=/root/.cache/go-build \
