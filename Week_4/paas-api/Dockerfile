@@ -6,7 +6,7 @@ WORKDIR /src
 RUN apk add --no-cache ca-certificates git
 
 # cache dependencies
-COPY paas-api/go.mod paas-api/go.sum ./
+COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 # copy everything from local to workdir
