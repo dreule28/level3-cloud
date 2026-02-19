@@ -21,7 +21,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: api
-          image: registry.onstackit.cloud/scr-daniel/paas-api:f0ae4c2
+          image: registry.onstackit.cloud/scr-daniel/paas-api:3de7015
           imagePullPolicy: Always
           env:
             - name: AUTH_USER
