@@ -12,7 +12,7 @@ defineProps({
   <div
     :class="[
       'group relative rounded-xl glass transition-all duration-300',
-      hoverable && 'hover:bg-glass-hover hover:border-white/10 hover:-translate-y-0.5',
+      hoverable && 'gradient-border hover:bg-glass-hover hover:border-white/10 hover:-translate-y-0.5',
       glow,
     ]"
   >
