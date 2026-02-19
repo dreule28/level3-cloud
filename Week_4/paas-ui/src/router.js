@@ -1,14 +1,45 @@
+/**
+ * Vue Router — CloudOS
+ * Auth guards, lazy-loaded views, page transitions
+ */
 import { createRouter, createWebHistory } from "vue-router";
-import LoginView from "./views/LoginView.vue";
-import InstancesView from "./views/InstancesView.vue";
-import { getToken } from "./api/http";
+import { getToken } from "@/api/auth";
 
 const routes = [
-  { path: "/login", component: LoginView },
-  { path: "/", redirect: "/instances" },
-  { path: "/instances", component: InstancesView, meta: { requiresAuth: true } },
-  { path: "/instances/:id", component: () => import("./views/InstanceDetailView.vue"), meta: { requiresAuth: true } }
-
+  {
+    path: "/login",
+    name: "login",
+    component: () => import("@/views/LoginView.vue"),
+    meta: { layout: "blank" },
+  },
+  {
+    path: "/",
+    redirect: "/dashboard",
+  },
+  {
+    path: "/dashboard",
+    name: "dashboard",
+    component: () => import("@/views/DashboardView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/instances",
+    name: "instances",
+    component: () => import("@/views/InstancesView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/instances/:id",
+    name: "instance-detail",
+    component: () => import("@/views/InstanceDetailView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/:pathMatch(.*)*",
+    name: "not-found",
+    component: () => import("@/views/NotFoundView.vue"),
+    meta: { layout: "blank" },
+  },
 ];
 
 const router = createRouter({
@@ -16,12 +47,13 @@ const router = createRouter({
   routes,
 });
 
+// Auth guard
 router.beforeEach((to) => {
   if (to.meta.requiresAuth && !getToken()) {
-    return "/login";
+    return { path: "/login", query: { redirect: to.fullPath } };
   }
   if (to.path === "/login" && getToken()) {
-    return "/instances";
+    return "/dashboard";
   }
 });
 

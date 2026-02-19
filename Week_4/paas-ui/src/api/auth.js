@@ -1,12 +1,18 @@
-import { http, setToken, clearToken } from "./http";
+/**
+ * Auth API — login / logout / token management
+ */
+import api from "./axios";
 
-export async function login(username, password) {
-  const data = await http.post("/auth/login", { username, password });
-  // data = { access_token, token_type, expires_in }
-  setToken(data.access_token);
+export async function loginApi(username, password) {
+  const { data } = await api.post("/auth/login", { username, password });
+  localStorage.setItem("access_token", data.access_token);
   return data;
 }
 
-export function logout() {
-  clearToken();
+export function logoutApi() {
+  localStorage.removeItem("access_token");
+}
+
+export function getToken() {
+  return localStorage.getItem("access_token");
 }

@@ -1,68 +1,94 @@
+<!--
+  LoginView — Cyberpunk animated login with floating neon card
+-->
 <script setup>
 import { ref } from "vue";
-import { useRouter } from "vue-router";
-import { login } from "../api/auth";
+import { useRouter, useRoute } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
+import NeonButton from "@/components/ui/NeonButton.vue";
 
+const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
-const username = ref("admin");
-const password = ref("password");
-const loading = ref(false);
-const error = ref("");
+const username = ref("");
+const password = ref("");
 
 async function onLogin() {
-  error.value = "";
-  loading.value = true;
-  try {
-    await login(username.value, password.value);
-    router.push("/instances");
-  } catch (e) {
-    error.value = e?.body?.message || e.message || "Login failed";
-  } finally {
-    loading.value = false;
+  if (!username.value || !password.value) return;
+  const ok = await auth.login(username.value, password.value);
+  if (ok) {
+    const redirect = route.query.redirect || "/dashboard";
+    router.push(redirect);
   }
 }
 </script>
 
 <template>
-  <div class="login-container">
-    <h2>Login</h2>
+  <div class="relative flex min-h-screen items-center justify-center p-4">
+    <!-- Extra ambient glow behind form -->
+    <div class="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-neon-purple/10 blur-[120px]" />
+    <div class="absolute bottom-1/4 right-1/4 h-[300px] w-[300px] rounded-full bg-neon-blue/10 blur-[100px]" />
 
-    <label>Username</label>
-    <input v-model="username" class="login-input" />
+    <!-- Login Card -->
+    <div class="relative w-full max-w-sm animate-float">
+      <div class="rounded-2xl glass-strong p-8 glow-purple">
+        <!-- Logo -->
+        <div class="mb-8 text-center">
+          <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-blue to-neon-purple text-2xl shadow-[0_0_40px_rgba(139,92,246,0.3)]">
+            ☁
+          </div>
+          <h1 class="text-2xl font-bold text-gradient">CloudOS</h1>
+          <p class="mt-1 text-sm text-gray-500">PaaS Control Plane</p>
+        </div>
 
-    <label>Password</label>
-    <input v-model="password" type="password" class="login-input" />
+        <!-- Form -->
+        <form @submit.prevent="onLogin" class="space-y-5">
+          <div>
+            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wider text-gray-500">Username</label>
+            <input
+              v-model="username"
+              type="text"
+              autocomplete="username"
+              class="w-full rounded-lg border border-border bg-void/50 px-4 py-3 text-sm text-white placeholder-gray-600 transition focus:border-neon-blue focus:outline-none focus:ring-1 focus:ring-neon-blue/50 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]"
+              placeholder="admin"
+            />
+          </div>
 
-    <button @click="onLogin" :disabled="loading" class="login-button">
-      {{ loading ? "Logging in..." : "Login" }}
-    </button>
+          <div>
+            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wider text-gray-500">Password</label>
+            <input
+              v-model="password"
+              type="password"
+              autocomplete="current-password"
+              class="w-full rounded-lg border border-border bg-void/50 px-4 py-3 text-sm text-white placeholder-gray-600 transition focus:border-neon-blue focus:outline-none focus:ring-1 focus:ring-neon-blue/50 focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]"
+              placeholder="••••••••"
+            />
+          </div>
 
-    <p v-if="error" class="login-error">
-      {{ error }}
-    </p>
+          <!-- Error -->
+          <Transition name="slide">
+            <p v-if="auth.error" class="rounded-lg border border-neon-red/30 bg-neon-red/10 px-4 py-2 text-xs text-neon-red">
+              {{ auth.error }}
+            </p>
+          </Transition>
+
+          <NeonButton type="submit" :loading="auth.loading" class="w-full justify-center">
+            Sign In
+          </NeonButton>
+        </form>
+
+        <!-- Bottom glow line -->
+        <div class="neon-line mt-6" />
+        <p class="mt-4 text-center text-xs text-gray-600">
+          Secured with JWT · E2E encrypted
+        </p>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.login-container {
-  max-width: 360px;
-  margin: 80px auto;
-  font-family: system-ui;
-}
-.login-input {
-  width: 100%;
-  padding: 8px;
-  margin: 6px 0 12px;
-  box-sizing: border-box;
-}
-.login-button {
-  width: 100%;
-  padding: 10px;
-  cursor: pointer;
-}
-.login-error {
-  color: #b00020;
-  margin-top: 12px;
-}
+.slide-enter-active, .slide-leave-active { transition: all 0.3s ease; }
+.slide-enter-from, .slide-leave-to { opacity: 0; transform: translateY(-8px); }
 </style>
