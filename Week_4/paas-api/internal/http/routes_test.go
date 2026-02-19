@@ -7,11 +7,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 
 	"github.com/dreule28/Week_4/paas-api/internal/config"
 	myhttp "github.com/dreule28/Week_4/paas-api/internal/http"
+	"github.com/dreule28/Week_4/paas-api/internal/http/auth"
 	"github.com/dreule28/Week_4/paas-api/internal/model"
 	"github.com/dreule28/Week_4/paas-api/internal/service"
 )
@@ -42,6 +45,37 @@ func (f fakeSvc) DeleteDatabase(ctx context.Context, id string) error {
 // Compile-time check: fakeSvc must satisfy the InstanceAPI interface.
 var _ service.InstanceAPI = fakeSvc{}
 
+// testConfig returns a Config with deterministic JWT settings for tests.
+func testConfig() config.Config {
+	return config.Config{
+		JWTSecret:   "test-secret",
+		JWTIssuer:   "test-issuer",
+		JWTAudience: "test-audience",
+	}
+}
+
+// testToken generates a signed JWT for use in test requests.
+func testToken(t *testing.T, cfg config.Config, role string) string {
+	t.Helper()
+	now := time.Now()
+	claims := auth.Claims{
+		Role: role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   "testuser",
+			Issuer:    cfg.JWTIssuer,
+			Audience:  jwt.ClaimStrings{cfg.JWTAudience},
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(5 * time.Minute)),
+		},
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tok.SignedString([]byte(cfg.JWTSecret))
+	if err != nil {
+		t.Fatalf("failed to sign test token: %v", err)
+	}
+	return signed
+}
+
 // TestHealthz_OK verifies that the /healthz endpoint returns 200
 // and the expected body. This is the simplest smoke test to confirm
 // the API is alive and the router is wired up.
@@ -57,7 +91,7 @@ func TestHealthz_OK(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	cfg := config.Config{}
+	cfg := testConfig()
 	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -89,10 +123,11 @@ func TestGetInstance_Route_OK(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	cfg := config.Config{}
+	cfg := testConfig()
 	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/instances/pg-demo", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken(t, cfg, "admin"))
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)
@@ -124,12 +159,13 @@ func TestPostInstances_Route_Accepted(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	cfg := config.Config{}
+	cfg := testConfig()
 	myhttp.RegisterRoutes(e, svc, cfg)
 
 	body := `{"id":"pg-new","instances":1,"storageGi":10}`
 	req := httptest.NewRequest(http.MethodPost, "/instances", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+testToken(t, cfg, "admin"))
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)
@@ -164,10 +200,11 @@ func TestDeleteInstances_Route_NoContent(t *testing.T) {
 		},
 	}
 
-	cfg := config.Config{}
+	cfg := testConfig()
 	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodDelete, "/instances/pg-del", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken(t, cfg, "admin"))
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)
@@ -203,10 +240,11 @@ func TestListInstances_Route_EmptyArray(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	cfg := config.Config{}
+	cfg := testConfig()
 	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/instances", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken(t, cfg, "admin"))
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)
@@ -232,7 +270,7 @@ func TestGetInstance_Route_NotFound(t *testing.T) {
 	svc := fakeSvc{
 		listFn: func(context.Context) ([]model.Instance, error) { return nil, nil },
 		getFn: func(ctx context.Context, id string) (model.InstanceDetails, error) {
-			return model.InstanceDetails{}, fmt.Errorf("instance %q not found", id)
+			return model.InstanceDetails{}, fmt.Errorf("instance %q: %w", id, service.ErrNotFound)
 		},
 		createFn: func(context.Context, model.CreateInstanceRequest) (model.Instance, error) {
 			return model.Instance{}, nil
@@ -240,10 +278,11 @@ func TestGetInstance_Route_NotFound(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	cfg := config.Config{}
+	cfg := testConfig()
 	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/instances/does-not-exist", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken(t, cfg, "admin"))
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)
@@ -282,10 +321,11 @@ func TestGetInstance_Route_ConnectionInfo(t *testing.T) {
 		deleteFn: func(context.Context, string) error { return nil },
 	}
 
-	cfg := config.Config{}
+	cfg := testConfig()
 	myhttp.RegisterRoutes(e, svc, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/instances/pg-demo", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken(t, cfg, "admin"))
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)

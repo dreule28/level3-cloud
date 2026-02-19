@@ -148,6 +148,34 @@ func TestCreate_BadJSON(t *testing.T) {
 	}
 }
 
+// TestCreate_InvalidID_400 verifies that an ID containing uppercase
+// letters or special characters is rejected with 400 Bad Request.
+func TestCreate_InvalidID_400(t *testing.T) {
+	e := echo.New()
+
+	h := handlers.NewInstanceHandler(fakeSvc{
+		listFn:   func(context.Context) ([]model.Instance, error) { return nil, nil },
+		getFn:    func(context.Context, string) (model.InstanceDetails, error) { return model.InstanceDetails{}, nil },
+		createFn: func(context.Context, model.CreateInstanceRequest) (model.Instance, error) {
+			t.Fatal("should not be called")
+			return model.Instance{}, nil
+		},
+		deleteFn: func(context.Context, string) error { return nil },
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/instances", bytes.NewBufferString(`{"id":"INVALID ID!"}`))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.Create(c); err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 // TestDelete_MissingID verifies that calling delete without providing
 // an :id parameter returns 400. The service should never be reached.
 func TestDelete_MissingID(t *testing.T) {
@@ -320,7 +348,7 @@ func TestGet_NotFound_404(t *testing.T) {
 	h := handlers.NewInstanceHandler(fakeSvc{
 		listFn: func(context.Context) ([]model.Instance, error) { return nil, nil },
 		getFn: func(ctx context.Context, id string) (model.InstanceDetails, error) {
-			return model.InstanceDetails{}, fmt.Errorf("instance %q not found", id)
+			return model.InstanceDetails{}, fmt.Errorf("instance %q: %w", id, service.ErrNotFound)
 		},
 		createFn: func(context.Context, model.CreateInstanceRequest) (model.Instance, error) {
 			return model.Instance{}, nil

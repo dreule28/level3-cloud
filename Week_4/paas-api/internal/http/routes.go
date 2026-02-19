@@ -20,9 +20,25 @@ func RegisterRoutes(e *echo.Echo, svc service.InstanceAPI, cfg config.Config) {
 		return c.String(http.StatusOK, "You're amazin")
 	})
 
-	// CPU-burn endpoint for HPA demo
+	authCfg := auth.Config{
+		AuthUser:		cfg.AuthUser,
+		AuthPass:		cfg.AuthPass,
+		JWTSecret:		[]byte(cfg.JWTSecret),
+		JWTIssuer:		cfg.JWTIssuer,
+		JWTAudience:	cfg.JWTAudience,
+		JWTTL:			cfg.JWTTL,
+	}
+
+	// Auth endpoints
+	auth.RegisterAuthRoutes(e, authCfg)
+
+	// Protected routes
+	protected := e.Group("")
+	protected.Use(auth.RequireJWT(authCfg))
+
+	// CPU-burn endpoint for HPA demo (protected)
 	// GET /work?ms=50
-	e.GET("/work", func(c echo.Context) error {
+	protected.GET("/work", func(c echo.Context) error {
 		ms, err := strconv.Atoi(c.QueryParam("ms"))
 		if err != nil || ms <= 0 {
 			ms = 50
@@ -44,22 +60,6 @@ func RegisterRoutes(e *echo.Echo, svc service.InstanceAPI, cfg config.Config) {
 			"ms":    ms,
 		})
 	})
-
-	authCfg := auth.Config{
-		AuthUser:		cfg.AuthUser,
-		AuthPass:		cfg.AuthPass,
-		JWTSecret:		[]byte(cfg.JWTSecret),
-		JWTIssuer:		cfg.JWTIssuer,
-		JWTAudience:	cfg.JWTAudience,
-		JWTTL:			cfg.JWTTL,
-	}
-
-	// Auth endpoints
-	auth.RegisterAuthRoutes(e, authCfg)
-
-	// Protected routes
-	protected := e.Group("")
-	protected.Use(auth.RequireJWT(authCfg))
 
 	instances := protected.Group("/instances")
 	instances.GET("", h.List)

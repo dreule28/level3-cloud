@@ -19,12 +19,11 @@ type Config struct {
 	JWTTL		time.Duration
 }
 
-func getenv(name, key string) string {
-	env := os.Getenv(name)
-	if env == "" {
-		return key
+func getenv(name, defaultVal string) string {
+	if env, ok := os.LookupEnv(name); ok {
+		return env
 	}
-	return env
+	return defaultVal
 }
 
 func MustLoad() Config {

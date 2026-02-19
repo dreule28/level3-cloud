@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
-	"strings"
+	"regexp"
 
 	"github.com/dreule28/Week_4/paas-api/internal/model"
 	"github.com/dreule28/Week_4/paas-api/internal/service"
 	"github.com/labstack/echo/v4"
 )
+
+var validID = regexp.MustCompile(`^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?$`)
 
 type InstancesHandler struct {
 	svc service.InstanceAPI
@@ -30,7 +33,7 @@ func (h *InstancesHandler) Get(c echo.Context) error {
 
 	out, err := h.svc.GetDatabase(c.Request().Context(), id)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, service.ErrNotFound) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -47,6 +50,9 @@ func (h *InstancesHandler) Create(c echo.Context) error {
 	if req.ID == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
 	}
+	if !validID.MatchString(req.ID) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id must be a valid RFC 1123 DNS label"})
+	}
 	if req.Instances <= 0 {
 		req.Instances = 1
 	}
@@ -56,6 +62,9 @@ func (h *InstancesHandler) Create(c echo.Context) error {
 
 	out, err := h.svc.CreateDatabase(c.Request().Context(), req)
 	if err != nil {
+		if errors.Is(err, service.ErrAlreadyExists) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": err.Error()})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusAccepted, out)
@@ -68,6 +77,9 @@ func (h *InstancesHandler) Delete(c echo.Context) error {
 	}
 
 	if err := h.svc.DeleteDatabase(c.Request().Context(), id); err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.NoContent(http.StatusNoContent)

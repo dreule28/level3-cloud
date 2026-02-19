@@ -42,6 +42,7 @@ async function onCreate() {
 }
 
 async function onDelete(id) {
+  if (!confirm(`Delete instance "${id}"? This cannot be undone.`)) return;
   error.value = "";
   try {
     await deleteInstance(id);
@@ -60,44 +61,89 @@ onMounted(load);
 </script>
 
 <template>
-  <div style="max-width: 820px; margin: 40px auto; font-family: system-ui;">
-    <div style="display:flex; justify-content: space-between; align-items: center;">
+  <div class="instances-container">
+    <div class="instances-header">
       <h2>Instances</h2>
       <button @click="onLogout">Logout</button>
     </div>
 
-    <div style="display:flex; gap: 8px; margin: 12px 0 18px;">
+    <div class="create-row">
       <input
         v-model="newId"
         placeholder="new instance id (e.g. pg-demo)"
-        style="flex:1; padding: 8px;"
+        class="create-input"
       />
       <button @click="onCreate">Create</button>
       <button @click="load" :disabled="loading">{{ loading ? "Loading..." : "Refresh" }}</button>
     </div>
 
-    <p v-if="error" style="color:#b00020;">{{ error }}</p>
+    <p v-if="error" class="error-msg">{{ error }}</p>
 
-    <table style="width:100%; border-collapse: collapse;">
+    <table class="instances-table">
       <thead>
         <tr>
-          <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 8px;">ID</th>
-          <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 8px;">Status</th>
-          <th style="border-bottom: 1px solid #ddd; padding: 8px;"></th>
+          <th>ID</th>
+          <th>Status</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="it in items" :key="it.id">
-          <td style="padding: 8px; border-bottom: 1px solid #eee;"><router-link :to="`/instances/${it.id}`">{{ it.id }}</router-link></td>
-          <td style="padding: 8px; border-bottom: 1px solid #eee;">{{ it.status }}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align:right;">
+          <td><router-link :to="`/instances/${it.id}`">{{ it.id }}</router-link></td>
+          <td>{{ it.status }}</td>
+          <td class="actions">
             <button @click="onDelete(it.id)">Delete</button>
           </td>
         </tr>
         <tr v-if="!loading && items.length === 0">
-          <td colspan="3" style="padding: 12px; color:#666;">No instances.</td>
+          <td colspan="3" class="empty-msg">No instances.</td>
         </tr>
       </tbody>
     </table>
   </div>
 </template>
+
+<style scoped>
+.instances-container {
+  max-width: 820px;
+  margin: 40px auto;
+  font-family: system-ui;
+}
+.instances-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.create-row {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 18px;
+}
+.create-input {
+  flex: 1;
+  padding: 8px;
+}
+.error-msg {
+  color: #b00020;
+}
+.instances-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.instances-table th {
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  padding: 8px;
+}
+.instances-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+.instances-table .actions {
+  text-align: right;
+}
+.empty-msg {
+  padding: 12px;
+  color: #666;
+}
+</style>

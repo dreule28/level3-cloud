@@ -63,7 +63,7 @@ func (s *InstanceService) GetDatabase(ctx context.Context, id string) (model.Ins
 		Name:      id,
 	}, &cluster); err != nil {
 		if apierrors.IsNotFound(err) {
-			return model.InstanceDetails{}, fmt.Errorf("instance %q not found", id)
+			return model.InstanceDetails{}, fmt.Errorf("instance %q: %w", id, ErrNotFound)
 		}
 		return model.InstanceDetails{}, err
 	}
@@ -123,7 +123,7 @@ func (s *InstanceService) CreateDatabase(ctx context.Context, req model.CreateIn
 
 	if err := s.k.K8sClient.Create(ctx, cluster); err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			return model.Instance{}, fmt.Errorf("instance %q already exists", req.ID)
+			return model.Instance{}, fmt.Errorf("instance %q: %w", req.ID, ErrAlreadyExists)
 		}
 		return model.Instance{}, err
 	}
@@ -140,7 +140,7 @@ func (s *InstanceService) DeleteDatabase(ctx context.Context, id string) error {
 
 	if err := s.k.K8sClient.Delete(ctx, cluster); err != nil {
 		if apierrors.IsNotFound(err) {
-			return fmt.Errorf("instance %q not found", id)
+			return fmt.Errorf("instance %q: %w", id, ErrNotFound)
 		}
 		return err
 	}

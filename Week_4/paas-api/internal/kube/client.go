@@ -46,9 +46,9 @@ func	NewClient(cfg config.Config) (*Client, error) {
 	utilruntime.Must(cnpgv1.AddToScheme(scheme))
 
 
-	k8scllient, err := client.New(restCfg, client.Options{Scheme: scheme})
+	k8sClient, err := client.New(restCfg, client.Options{Scheme: scheme})
 	if err != nil {
 		return nil, err
 	}
-	return &Client{K8sClient: k8scllient}, nil
+	return &Client{K8sClient: k8sClient}, nil
 }

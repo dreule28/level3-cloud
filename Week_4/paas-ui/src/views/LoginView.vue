@@ -25,21 +25,44 @@ async function onLogin() {
 </script>
 
 <template>
-  <div style="max-width: 360px; margin: 80px auto; font-family: system-ui;">
+  <div class="login-container">
     <h2>Login</h2>
 
     <label>Username</label>
-    <input v-model="username" style="width: 100%; padding: 8px; margin: 6px 0 12px;" />
+    <input v-model="username" class="login-input" />
 
     <label>Password</label>
-    <input v-model="password" type="password" style="width: 100%; padding: 8px; margin: 6px 0 12px;" />
+    <input v-model="password" type="password" class="login-input" />
 
-    <button @click="onLogin" :disabled="loading" style="width: 100%; padding: 10px;">
+    <button @click="onLogin" :disabled="loading" class="login-button">
       {{ loading ? "Logging in..." : "Login" }}
     </button>
 
-    <p v-if="error" style="color: #b00020; margin-top: 12px;">
+    <p v-if="error" class="login-error">
       {{ error }}
     </p>
   </div>
 </template>
+
+<style scoped>
+.login-container {
+  max-width: 360px;
+  margin: 80px auto;
+  font-family: system-ui;
+}
+.login-input {
+  width: 100%;
+  padding: 8px;
+  margin: 6px 0 12px;
+  box-sizing: border-box;
+}
+.login-button {
+  width: 100%;
+  padding: 10px;
+  cursor: pointer;
+}
+.login-error {
+  color: #b00020;
+  margin-top: 12px;
+}
+</style>
