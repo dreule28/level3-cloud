@@ -18,7 +18,7 @@ spec:
         - name: scr-pull
       containers:
         - name: ui
-          image: registry.onstackit.cloud/scr-daniel/paas-ui:039c4f1
+          image: registry.onstackit.cloud/scr-daniel/paas-ui:038d28d
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
