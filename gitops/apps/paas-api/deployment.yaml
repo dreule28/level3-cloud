@@ -23,28 +23,6 @@ spec:
         - name: api
           image: registry.onstackit.cloud/scr-daniel/paas-api:3de7015
           imagePullPolicy: Always
-          env:
-            - name: AUTH_USER
-              valueFrom:
-                secretKeyRef:
-                  name: paas-api-auth
-                  key: auth_user
-            - name: AUTH_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: paas-api-auth
-                  key: auth_pass
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: paas-api-auth
-                  key: jwt_secret
-            - name: JWT_ISSUER
-              value: paas-api
-            - name: JWT_AUDIENCE
-              value: paas-ui
-            - name: JWT_TTL
-              value: 15m
           ports:
             - containerPort: 8080
           securityContext:
