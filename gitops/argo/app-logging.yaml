@@ -17,9 +17,7 @@ spec:
         values: |
           loki:
             auth_enabled: false
-          persistence:
-            enabled: true
-            size: 10Gi
+            useTestSchema: true
     - repoURL: https://grafana.github.io/helm-charts
       chart: promtail
       targetRevision: 6.15.0
