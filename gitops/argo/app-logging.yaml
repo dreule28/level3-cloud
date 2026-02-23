@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: logging
+  namespace: argocd
+spec:
+  project: default
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts # loki & promtail
+      chart: loki-stack
+      targetRevision: 2.10.2
+      helm:
+        releaseName: loki
+        valueFiles:
+          - $values/gitops/apps/logging/values-loki.yaml
+    - repoURL: https://github.com/dreule28/level3-cloud.git
+      targetRevision: main
+      ref: values
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

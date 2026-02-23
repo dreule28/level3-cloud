@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: default
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts # grafana & prometheus
+      chart: kube-prometheus-stack
+      targetRevision: 65.0.0
+      helm:
+        releaseName: kps
+        valueFiles:
+          - $values/gitops/apps/monitoring/values-kps.yaml
+    - repoURL: https://github.com/dreule28/level3-cloud.git
+      targetRevision: main
+      ref: values
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
