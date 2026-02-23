@@ -15,15 +15,33 @@ spec:
         deploymentMode: SingleBinary
         loki:
           auth_enabled: false
-          useTestSchema: true
           commonConfig:
             replication_factor: 1
+            path_prefix: /var/loki
+          schemaConfig:
+            configs:
+              - from: "2024-01-01"
+                store: tsdb
+                object_store: filesystem
+                schema: v13
+                index:
+                  prefix: index_
+                  period: 24h
           storage:
             type: filesystem
+            filesystem:
+              chunks_directory: /var/loki/chunks
+              rules_directory: /var/loki/rules
+          rulerConfig:
+            storage:
+              type: local
+              local:
+                directory: /var/loki/rules
         singleBinary:
           replicas: 1
           persistence:
-            enabled: false
+            enabled: true
+            size: 10Gi
         backend:
           replicas: 0
         read:
@@ -34,6 +52,8 @@ spec:
           enabled: false
         resultsCache:
           enabled: false
+        gateway:
+          replicas: 1
         promtail:
           enabled: true
   destination:
