@@ -9,16 +9,26 @@ spec:
     server: https://kubernetes.default.svc
     namespace: logging
   sources:
-    - repoURL: https://grafana.github.io/helm-charts # loki & promtail
-      chart: loki-stack
-      targetRevision: 2.10.2
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: loki
+      targetRevision: 6.0.0
       helm:
         releaseName: loki
-        valueFiles:
-          - $values/gitops/apps/logging/values-loki.yaml
-    - repoURL: https://github.com/dreule28/level3-cloud.git
-      targetRevision: main
-      ref: values
+        values: |
+          loki:
+            auth_enabled: false
+          persistence:
+            enabled: true
+            size: 10Gi
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: promtail
+      targetRevision: 6.15.0
+      helm:
+        releaseName: promtail
+        values: |
+          config:
+            clients:
+              - url: http://loki.logging.svc.cluster.local:3100/loki/api/v1/push
   syncPolicy:
     automated:
       prune: true
