@@ -5,11 +5,9 @@ metadata:
   namespace: argocd
 spec:
   project: default
-
   destination:
     server: https://kubernetes.default.svc
     namespace: logging
-
   sources:
     - repoURL: https://grafana.github.io/helm-charts # loki & promtail
       chart: loki-stack
@@ -21,7 +19,6 @@ spec:
     - repoURL: https://github.com/dreule28/level3-cloud.git
       targetRevision: main
       ref: values
-
   syncPolicy:
     automated:
       prune: true
