@@ -1,38 +1,42 @@
-# Week 4 – Provisioning and Interaction via RESTful API
+# Week 4+5 – RESTful API & Web UI
+
+---
+
+## Week 4 – Provisioning and Interaction via RESTful API
 
 APIs are the front door to your platform. Make them robust, secure, and developer-friendly.
 
 ---
 
-## Overview
+### Overview
 
-This week focuses on:
-- **RESTful API Development**: Building a production-ready API for PaaS product management
-- **OpenAPI Specification**: Documenting API endpoints with industry-standard specifications
-- **Unit Testing**: Implementing comprehensive tests for all API endpoints
-- **Containerization**: Creating Docker images and deploying to STACKIT Container Registry
-- **Kubernetes Deployment**: Provisioning the API on SKE with GitOps practices
-- **Auto-Scaling**: Configuring Horizontal Pod Autoscaler (HPA) for production resilience
-- **Performance Testing**: Load testing with k6 to validate scaling behavior
-
-The implementation demonstrates **API-first development**, **container orchestration**, and **cloud-native scalability patterns**.
+Week 4 covers:
+- **RESTful API Development**: A production-ready API built with Go and Echo for managing PostgreSQL instances
+- **JWT Authentication**: Secure endpoints with HS256 JSON Web Tokens and role-based access control
+- **OpenAPI Specification**: Full API documentation in `openapi.yaml`
+- **Unit Testing**: Handler and route-level tests using a mock service (no cluster required)
+- **Containerization**: Multi-stage Docker build, pushed to STACKIT Container Registry
+- **GitOps Deployment**: ArgoCD Application for automated deployment to SKE
+- **Auto-Scaling**: HPA configured to scale 1–10 replicas based on CPU and memory
+- **Performance Testing**: k6 load tests with a dedicated `/work` CPU-burn endpoint to trigger HPA
 
 ---
 
-## Architecture
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│           External Clients / Users              │
+│        External Clients / Web UI                │
 └──────────────────┬──────────────────────────────┘
-                   │ HTTP/REST
+                   │ HTTPS (Ingress + TLS)
 ┌──────────────────▼──────────────────────────────┐
-│              PaaS API Service                   │
-│    (RESTful API for Product Management)         │
-│  - Create Instance    - Delete Instance         │
-│  - List Instances     - Get Connection Info     │
+│           PaaS API  (Echo / Go)                 │
+│  POST /auth/login   GET  /auth/me               │
+│  GET  /instances    GET  /instances/:id         │
+│  POST /instances    DELETE /instances/:id       │
+│  GET  /work         GET  /healthz               │
 └──────────────────┬──────────────────────────────┘
-                   │ Kubernetes Client
+                   │ Kubernetes Go Client
 ┌──────────────────▼──────────────────────────────┐
 │         PostgreSQL Cluster (CRD)                │
 │          (CloudNativePG Operator)               │
@@ -44,321 +48,259 @@ The implementation demonstrates **API-first development**, **container orchestra
 └─────────────────────────────────────────────────┘
 ```
 
-**Flow for Instance Creation:**
+**Instance Creation Flow:**
 ```
-User Request → API Endpoint → Validate Input → Create K8s CR
-    → Operator Reconciles → PostgreSQL Deployed → Return Instance Info
+POST /instances → Validate Input + JWT (admin role)
+    → Create CloudNativePG Cluster CR
+    → Operator Reconciles → PostgreSQL Deployed
+    → Return 202 Accepted with Instance ID
 ```
 
 ---
 
-## Prerequisites
+### Prerequisites
 
-- STACKIT Kubernetes Engine (SKE) cluster running (from Week 3)
-- CloudNativePG Operator installed
+- SKE cluster running (from Week 3) with CloudNativePG Operator installed
 - `kubectl` configured for cluster access
 - `docker` CLI for building container images
 - Go 1.21+ for local development
-- (Optional) k6 for performance testing
+- k6 for performance testing
 
 ---
 
-## API Implementation
+### API Implementation
 
-### 1. API Structure
-
-The API is built with Go and organized as follows:
+#### Project Structure
 
 ```
 paas-api/
-├── cmd/api/main.go              # Application entry point
+├── cmd/api/main.go              # Entry point (Echo server + CORS + middleware)
 ├── internal/
-│   ├── config/config.go         # Configuration management
+│   ├── config/config.go         # Config loaded from env vars
 │   ├── http/
-│   │   ├── routes.go            # Route definitions
+│   │   ├── routes.go            # Route registration + JWT middleware wiring
+│   │   ├── routes_test.go       # Integration-level route tests (mock service)
+│   │   ├── auth/
+│   │   │   └── auth.go          # JWT login, RequireJWT & RequireRole middleware
 │   │   └── handlers/
-│   │       ├── handlers.go      # HTTP handlers
-│   │       └── handlers_test.go # Unit tests
-│   ├── kube/client.go           # Kubernetes client
-│   ├── model/instance.go        # Data models
+│   │       ├── handlers.go      # HTTP handlers (List, Get, Create, Delete)
+│   │       └── handlers_test.go # Handler unit tests (mock service)
+│   ├── kube/client.go           # Kubernetes Go client setup
+│   ├── model/instance.go        # Request/response models
 │   └── service/
-│       ├── logic.go             # Business logic
-│       └── ports.go             # Service ports
+│       ├── logic.go             # Business logic (CRD management)
+│       ├── ports.go             # InstanceAPI interface
+│       └── errors.go            # Sentinel errors (ErrNotFound, ErrAlreadyExists)
 ├── openapi.yaml                 # OpenAPI 3.0 specification
-├── go.mod                       # Go dependencies
-└── Dockerfile                   # Container image definition
+├── go.mod
+└── Dockerfile
 ```
 
-### 2. API Endpoints
+#### API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Health check endpoint |
-| `POST` | `/api/v1/instances` | Create a new PostgreSQL instance |
-| `GET` | `/api/v1/instances` | List all instances |
-| `GET` | `/api/v1/instances/{id}` | Get instance details and connection info |
-| `DELETE` | `/api/v1/instances/{id}` | Delete an instance |
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|---------------|-------------|
+| `GET` | `/healthz` | No | Health check — returns `200 You're amazin` |
+| `POST` | `/auth/login` | No | Exchange username/password for a JWT |
+| `GET` | `/auth/me` | JWT | Inspect the current token (sub, role, exp) |
+| `GET` | `/instances` | JWT | List all PostgreSQL instances |
+| `GET` | `/instances/:id` | JWT | Get instance details and connection info |
+| `POST` | `/instances` | JWT + admin role | Create a new PostgreSQL instance |
+| `DELETE` | `/instances/:id` | JWT + admin role | Delete an instance |
+| `GET` | `/work?ms=50` | JWT | CPU-burn endpoint for HPA load testing |
 
-### 3. OpenAPI Specification
+#### Authentication
 
-The API is fully documented using OpenAPI 3.0 specification.
+The API uses **JWT (HS256)** for authentication:
 
-**Viewing the Specification:**
-
- **Using Swagger Editor** (online):
-   - Visit [editor.swagger.io](https://editor.swagger.io/)
-   - Copy and paste the contents of `openapi.yaml`
-   - Or import the file directly
-
-
-**Key Features:**
-- Complete request/response schemas
-- Authentication requirements (if implemented)
-- Error response definitions
-- Example payloads
-- Interactive API testing (with Swagger UI)
-
-### 4. Running Unit Tests
+1. `POST /auth/login` — returns `access_token` (Bearer)
+2. All `/instances` routes and `/work` require `Authorization: Bearer <token>`
+3. `POST` and `DELETE` additionally require the `admin` role claim in the token
 
 ```bash
-cd Week_4/paas-api
+# Get a token
+TOKEN=$(curl -s -X POST https://api-daniel-paas.stackit.gg/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "secret"}' \
+  | jq -r .access_token)
+
+# Use it
+curl -H "Authorization: Bearer $TOKEN" \
+  https://api-daniel-paas.stackit.gg/instances
+```
+
+#### OpenAPI Specification
+
+The API is documented with OpenAPI 3.0 in [`openapi.yaml`](paas-api/openapi.yaml).
+
+View it by pasting into [editor.swagger.io](https://editor.swagger.io/) or:
+```bash
+npx @redocly/cli preview-docs paas-api/openapi.yaml
+```
+
+---
+
+### Unit Tests
+
+Tests are split into two suites — both use a `fakeSvc` mock that implements the `InstanceAPI` interface, so no real Kubernetes cluster is needed.
+
+| File | What it tests |
+|------|---------------|
+| `internal/http/handlers/handlers_test.go` | Handler logic: happy paths, error responses, input validation |
+| `internal/http/routes_test.go` | Route wiring, JWT middleware, role-based access control |
+
+```bash
+cd Week_4+5/paas-api
 
 # Run all tests
 go test ./...
 
-# Run tests with coverage
+# With coverage
 go test -cover ./...
 
-# Run tests with verbose output
-go test -v ./internal/http/handlers
+# Verbose
+go test -v ./internal/http/...
 ```
-
-**Test Coverage:**
-- Handler tests for all endpoints
-- Mock Kubernetes client interactions
-- Input validation testing
-- Error handling scenarios
 
 ---
 
-## Local Development
-
-### 1. Install Dependencies
+### Local Development
 
 ```bash
-cd Week_4/paas-api
+cd Week_4+5/paas-api
+
+# Install dependencies
 go mod download
-```
 
-### 2. Configure Kubernetes Access
+# Point kubectl at your SKE cluster
+export KUBECONFIG=/path/to/kubeconfig.yml
 
-Ensure your `kubeconfig.yml` points to the SKE cluster:
-
-```bash
-export KUBECONFIG=/path/to/Week_4/paas-api/kubeconfig.yml
-```
-
-### 3. Run the API Locally
-
-```bash
+# Run locally
 go run cmd/api/main.go
+# Listening on :8080
 ```
 
-The API will start on `http://localhost:8080`
-
-### 4. Test the API
-
+**Quick smoke test:**
 ```bash
-# Health check
-curl http://localhost:8080/health
+# Health
+curl http://localhost:8080/healthz
+
+# Login
+TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}' | jq -r .access_token)
 
 # Create an instance
-curl -X POST http://localhost:8080/api/v1/instances \
+curl -X POST http://localhost:8080/instances \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "test-db",
-    "instances": 3,
-    "storage": "10Gi"
-  }'
+  -d '{"id":"pg-demo","instances":1,"storageGi":10}'
 
 # List instances
-curl http://localhost:8080/api/v1/instances
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/instances
 
-# Get instance details
-curl http://localhost:8080/api/v1/instances/test-db
+# Get details
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/instances/pg-demo
 
-# Delete instance
-curl -X DELETE http://localhost:8080/api/v1/instances/test-db
+# Delete
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/instances/pg-demo
 ```
 
 ---
 
-## Container Image & Deployment
+### Container Image & Deployment
 
-### 1. Build Docker Image
+#### Build & Push
 
 ```bash
-cd Week_4
-
-# Build the image
-docker build -t paas-api:latest -f Dockerfile paas-api/
+# Build
+docker build -t paas-api:latest -f Week_4+5/paas-api/Dockerfile Week_4+5/paas-api/
 
 # Tag for STACKIT Container Registry
-docker tag paas-api:latest registry.stackit.cloud/your-project/paas-api:v1.0.0
+docker tag paas-api:latest registry.onstackit.cloud/scr-daniel/paas-api:<tag>
+
+# Push
+docker push registry.onstackit.cloud/scr-daniel/paas-api:<tag>
 ```
 
-### 2. Push to STACKIT Container Registry
+#### GitOps Deployment (ArgoCD)
 
 ```bash
-# Login to STACKIT registry
-docker login registry.stackit.cloud
-
-# Push the image
-docker push registry.stackit.cloud/your-project/paas-api:v1.0.0
-```
-
-### 3. Deploy to SKE
-
-#### Manual Deployment
-
-```bash
-cd gitops/apps/paas-api
-
-# Create namespace
-kubectl apply -f namespace.yaml
-
-# Deploy the application
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
-```
-
-#### GitOps Deployment with ArgoCD
-
-```bash
-# Apply ArgoCD application
+# Apply ArgoCD Application (automated sync enabled)
 kubectl apply -f gitops/argo/app-paas-api.yaml
 
 # Check sync status
 argocd app get paas-api
 
-# Sync the application
+# Manual sync if needed
 argocd app sync paas-api
 ```
 
-### 4. Verify Deployment
-
-```bash
-# Check pods
-kubectl get pods -n paas-api
-
-# Check service
-kubectl get svc -n paas-api
-
-# Check logs
-kubectl logs -n paas-api -l app=paas-api
-```
+ArgoCD auto-syncs on every push to `main` with `prune: true` and `selfHeal: true`.
 
 ---
 
-## Auto-Scaling with HPA
+### Bonus Features
 
-### 1. Configure Horizontal Pod Autoscaler
+#### Automated API Deployment ✓
 
-The HPA automatically scales the API based on CPU and memory utilization:
+- ArgoCD Application: [`gitops/argo/app-paas-api.yaml`](../gitops/argo/app-paas-api.yaml)
+- Kubernetes manifests: [`gitops/apps/paas-api/`](../gitops/apps/paas-api/) — Deployment, Service, Ingress, HPA, RBAC
+- Automated sync triggers on every push to `main`
+
+#### Auto-Scaling and Performance Tests ✓
+
+**HPA** — configured in [`gitops/apps/paas-api/hpa.yaml`](../gitops/apps/paas-api/hpa.yaml):
+
+| Setting | Value |
+|---------|-------|
+| Min replicas | 1 |
+| Max replicas | 10 |
+| CPU target | 70% average utilization |
+| Memory target | 80% average utilization |
+| Scale-up | Immediate — doubles pods every 30 s |
+| Scale-down | 5-minute stabilization, max 50% per 60 s |
 
 ```bash
-kubectl apply -f gitops/apps/paas-api/hpa.yaml
-```
-
-**HPA Configuration:**
-- Min replicas: 2
-- Max replicas: 10
-- Target CPU: 70%
-- Target Memory: 80%
-
-### 2. Monitor HPA Status
-
-```bash
-# Check HPA status
-kubectl get hpa -n paas-api
-
-# Watch HPA in real-time
+# Watch HPA in real time
 kubectl get hpa -n paas-api -w
 
-# Describe HPA for detailed metrics
-kubectl describe hpa paas-api -n paas-api
+# Detailed metrics
+kubectl describe hpa paas-api-hpa -n paas-api
 ```
 
----
+**k6 Performance Tests** — [`gitops/apps/paas-api/loadtest/k6.js`](../gitops/apps/paas-api/loadtest/k6.js)
 
-## Performance Testing
+The load test hits `/work?ms=50` to generate CPU load and trigger HPA scaling.
 
-### 1. k6 Load Test Setup
+| Stage | Duration | VUs |
+|-------|----------|-----|
+| Ramp up | 30 s | 0 → 10 |
+| Ramp up | 30 s | 10 → 30 |
+| Sustained | 60 s | 30 → 60 |
+| Ramp down | 30 s | 60 → 0 |
 
-The load tests are defined using k6 and deployed as Kubernetes Jobs.
-
-```javascript
-// gitops/apps/paas-api/loadtest/k6.js
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-
-export let options = {
-  stages: [
-    { duration: '2m', target: 100 },  // Ramp up to 100 users
-    { duration: '5m', target: 100 },  // Stay at 100 users
-    { duration: '2m', target: 200 },  // Ramp up to 200 users
-    { duration: '5m', target: 200 },  // Stay at 200 users
-    { duration: '2m', target: 0 },    // Ramp down to 0 users
-  ],
-};
-
-export default function() {
-  let response = http.get('http://paas-api.paas-api.svc.cluster.local:8080/health');
-  check(response, { 'status is 200': (r) => r.status === 200 });
-  sleep(1);
-}
-```
-
-### 2. Run Performance Tests
+Thresholds: `http_req_failed < 1%`, `p(95) < 2 s`
 
 ```bash
-# Apply ConfigMap with k6 script
 kubectl apply -f gitops/apps/paas-api/loadtest/k6-configmap.yaml
-
-# Run the load test job
 kubectl apply -f gitops/apps/paas-api/loadtest/k6-job.yaml
 
-# Monitor the test
+# Follow logs
 kubectl logs -n paas-api -l job-name=k6-loadtest -f
 
-# Watch HPA scale the pods
+# Watch pods scale
 kubectl get hpa -n paas-api -w
 ```
 
-### 3. Analyze Results
+#### Update Functionality
 
-```bash
-# Check final HPA state
-kubectl describe hpa paas-api -n paas-api
-
-# View pod scaling events
-kubectl get events -n paas-api --sort-by='.lastTimestamp'
-
-# Check number of running pods
-kubectl get pods -n paas-api -l app=paas-api
-```
-
-**Expected Behavior:**
-- API should scale from 2 to 10 replicas during load
-- Response times should remain stable under load
-- No errors or failed requests
-- Automatic scale-down after load decreases
+Not implemented.
 
 ---
 
-## Understanding the Create Flow
-
-### Instance Creation Process
+### Understanding the Create Flow
 
 ```mermaid
 flowchart TD
@@ -399,8 +341,6 @@ flowchart TD
     style F fill:#4da6ff,stroke:#0066cc,stroke-width:2px,color:#fff
     style G fill:#ffa500,stroke:#cc6600,stroke-width:2px,color:#000
 
-<!-- [MermaidChart: 4435770d-635c-4046-8254-f9ed94189783] -->
-<!-- [MermaidChart: b3ece2c1-4585-436b-94bd-5960dfa41a2e] -->
     style H fill:#9966cc,stroke:#663399,stroke-width:2px,color:#fff
     style I fill:#9966cc,stroke:#663399,stroke-width:2px,color:#fff
     style J fill:#9966cc,stroke:#663399,stroke-width:2px,color:#fff
@@ -411,143 +351,235 @@ flowchart TD
 
     style E1 fill:#ff6b6b,stroke:#8b0000,stroke-width:2px,color:#fff
     style E2 fill:#ff6b6b,stroke:#8b0000,stroke-width:2px,color:#fff
+
 ```
 
-**Flow Stages:**
-
-1. **Request Validation** (Blue) - API validates input and checks authorization
-2. **Provisioning** (Orange) - Returns 202 with instance ID, provisioning starts asynchronously
-3. **Reconciliation** (Purple) - Operator watches and reconciles Kubernetes resources
-4. **Success** (Green) - Instance ready with connection information
-5. **Failure** (Red) - Error handling at each stage
+**Flow stages:**
+1. **Validation** — Input checked, JWT and admin role verified
+2. **Provisioning** — Returns `202 Accepted` immediately, CR created asynchronously
+3. **Reconciliation** — CloudNativePG Operator watches and provisions the PostgreSQL cluster
+4. **Ready** — Connection info extracted from the Kubernetes Service and Secret
 
 ---
 
-## Bonus Features
+---
 
-### 1. Automated API Deployment ✓
+## Week 5 – Web UI and Secure Public Access
 
-GitOps integration for automated deployment:
-- **ArgoCD Application**: Declarative configuration in [`gitops/argo/app-paas-api.yaml`](../gitops/argo/app-paas-api.yaml)
-- **Kubernetes Manifests**: Deployment, Service, HPA in [`gitops/apps/paas-api/`](../gitops/apps/paas-api/)
-- **Automated Sync**: Changes to Git repository trigger automatic deployment
-- **Self-healing**: ArgoCD automatically reconciles drift from desired state
-
-### 2. Auto-Scaling and Performance Tests ✓
-
-Horizontal scaling with load testing:
-- **HPA Configuration**: [`gitops/apps/paas-api/hpa.yaml`](../gitops/apps/paas-api/hpa.yaml) - scales 2-10 replicas based on CPU/memory
-- **k6 Load Tests**: [`gitops/apps/paas-api/loadtest/`](../gitops/apps/paas-api/loadtest/) - performance testing scripts
-- **Validation**: Load tests verify HPA functionality under realistic traffic patterns
-- **Metrics**: Real-time scaling behavior monitoring
-
-### 3. Update Functionality
-
-Implement an update endpoint for modifying instance specifications:
-
-```
-PATCH /api/v1/instances/{id}
-```
-
-**Supported Updates:**
-- Number of replicas
-- Storage size (expansion only)
-- Resource limits
-- Connection parameters
+Your platform isn't complete until users can securely access and interact with it.
 
 ---
 
-## Key Learnings
+### Overview
 
-### RESTful API Design
-- Resource-based URL structure
-- Proper HTTP methods (GET, POST, DELETE, PATCH)
-- Status codes and error handling
-- Idempotent operations
+Week 5 covers:
+- **Vue.js Web UI**: A single-page application for full CRUD management of PostgreSQL instances
+- **JWT Integration**: The UI authenticates with the API using the same JWT flow — token stored in `localStorage`, attached to every request via an Axios interceptor
+- **Ingress with TLS**: nginx Ingress controller + cert-manager (Let's Encrypt) for HTTPS on public STACKIT subdomains
+- **GitOps Deployment**: ArgoCD Application for the UI, same pattern as the API
+- **GSAP Animations**: Polished page transitions, KPI count-up animations, and ambient effects
 
-### Kubernetes Integration
-- Using the Kubernetes Go client
-- Creating and managing Custom Resources
-- Watching resource status
-- Namespace isolation
+---
 
-### Container Best Practices
-- Multi-stage Docker builds
-- Minimal base images
-- Non-root user execution
-- Health checks and readiness probes
+### Architecture
 
-### Cloud-Native Scalability
-- Horizontal Pod Autoscaler configuration
-- Resource requests and limits
-- Load testing methodology
-- Performance optimization
+```
+                Internet
+                   │
+       ┌───────────▼───────────┐
+       │     nginx Ingress     │
+       │ (TLS via cert-manager)│
+       └──────┬──────┬─────────┘
+              │      │
+  ┌───────────▼──┐  ┌▼───────────────┐
+  │  paas-ui     │  │   paas-api     │
+  │  Vue.js SPA  │  │   Go + Echo    │
+  │  nginx :80   │  │   :8080        │
+  └──────────────┘  └───────┬────────┘
+                             │
+                  ┌──────────▼──────────┐
+                  │  CloudNativePG CRDs │
+                  │  (PostgreSQL pods)  │
+                  └─────────────────────┘
 
-### GitOps Workflow
-- Declarative configuration
-- ArgoCD application management
-- Automated sync and rollback
-- Version control for infrastructure
+Public URLs:
+  https://daniel-paas.stackit.gg      → Web UI
+  https://api-daniel-paas.stackit.gg  → API
+```
+
+---
+
+### UI Features
+
+| View | Description |
+|------|-------------|
+| `/login` | Login form — exchanges credentials for a JWT via `POST /auth/login` |
+| `/dashboard` | KPI cards (active / total / failed instances) with GSAP count-up animation |
+| `/instances` | Table of all instances with create and delete modals |
+| `/instances/:id` | Detail view — status and full connection string |
+
+**Additional details:**
+- Vue Router guards redirect unauthenticated users to `/login` and back to the requested route on success
+- Pinia stores (`auth.js`, `instances.js`) manage all async state
+- Toast notifications for success/error feedback on every action
+- Cyberpunk / glassmorphism design: dark theme, neon accents, background grid, cursor glow
+- Skeleton loaders while data is fetching
+
+---
+
+### UI Project Structure
+
+```
+paas-ui/
+├── src/
+│   ├── api/
+│   │   ├── auth.js        # loginApi / logoutApi / getToken (localStorage)
+│   │   ├── axios.js       # Axios instance with auth request interceptor
+│   │   └── instances.js   # CRUD calls to /instances
+│   ├── stores/
+│   │   ├── auth.js        # Pinia auth store (isAuthenticated, login, logout)
+│   │   └── instances.js   # Pinia instances store (fetchInstances, addInstance, …)
+│   ├── router.js          # Vue Router with beforeEach auth guard
+│   ├── views/
+│   │   ├── LoginView.vue
+│   │   ├── DashboardView.vue
+│   │   ├── InstancesView.vue
+│   │   └── InstanceDetailView.vue
+│   └── components/
+│       ├── layout/AppShell.vue   # Sidebar + top bar shell
+│       ├── ui/                   # GlassCard, NeonButton, StatusPill, GlassModal, …
+│       └── effects/              # BackgroundGrid, CursorGlow
+├── Dockerfile             # Multi-stage: Vite build → nginx static serve
+├── nginx.conf
+└── vite.config.js
+```
+
+---
+
+### JWT Flow (UI ↔ API)
+
+```
+User enters credentials
+        │
+        ▼
+POST /auth/login ──────────────────────────────► API
+                 ◄──── { access_token, expires_in }
+        │
+        ├─ token stored in localStorage
+        │
+        ▼
+All subsequent API calls include:
+  Authorization: Bearer <token>
+  (attached automatically by the Axios request interceptor)
+        │
+        ▼
+If 401 received → redirect to /login
+```
+
+---
+
+### Ingress & TLS
+
+Configured with `cert-manager` and the `letsencrypt-prod` ClusterIssuer.
+
+| Resource | Namespace | Host | TLS Secret |
+|----------|-----------|------|------------|
+| API Ingress | `paas-api` | `api-daniel-paas.stackit.gg` | `api-daniel-paas-tls` |
+| UI Ingress | `paas-ui` | `daniel-paas.stackit.gg` | `daniel-paas-tls` |
+
+```bash
+# Check certificate status
+kubectl get certificate -n paas-api
+kubectl get certificate -n paas-ui
+
+# Check ingress
+kubectl get ingress -n paas-api
+kubectl get ingress -n paas-ui
+```
+
+---
+
+### Container Image & Deployment
+
+#### Build & Push
+
+```bash
+# Build (nginx serves the Vite dist)
+docker build -t paas-ui:latest Week_4+5/paas-ui/
+
+# Tag and push
+docker tag paas-ui:latest registry.onstackit.cloud/scr-daniel/paas-ui:<tag>
+docker push registry.onstackit.cloud/scr-daniel/paas-ui:<tag>
+```
+
+#### GitOps Deployment (ArgoCD)
+
+```bash
+kubectl apply -f gitops/argo/app-paas-ui.yaml
+argocd app sync paas-ui
+```
+
+Manifests: [`gitops/apps/paas-ui/`](../gitops/apps/paas-ui/) — Deployment, Service, Ingress, Kustomization.
+
+---
+
+### Bonus Features
+
+#### Automated Deployment of Web UI ✓
+
+- ArgoCD Application: [`gitops/argo/app-paas-ui.yaml`](../gitops/argo/app-paas-ui.yaml)
+- Automated sync with `prune: true` and `selfHeal: true`
+- Every push to `main` automatically deploys the latest image
+
+#### E2E Tests
+
+Not implemented.
 
 ---
 
 ## Troubleshooting
 
-### API Not Starting
+### API not starting
 ```bash
-# Check pod logs
 kubectl logs -n paas-api -l app=paas-api
-
-# Common issues:
-# - Kubeconfig not mounted correctly
-# - RBAC permissions missing
-# - Service account not configured
+# Common causes: kubeconfig not mounted, RBAC permissions missing
 ```
 
-### HPA Not Scaling
+### 401 on all requests
 ```bash
-# Check metrics server
-kubectl top nodes
+# Verify the JWT secret env var is set in the deployment
+kubectl describe deployment paas-api -n paas-api | grep -A5 env
+```
+
+### HPA not scaling
+```bash
+# Metrics server must be running
 kubectl top pods -n paas-api
-
-# Verify HPA configuration
-kubectl describe hpa paas-api -n paas-api
-
-# Ensure resource requests are set in deployment
+kubectl describe hpa paas-api-hpa -n paas-api
+# Ensure resource requests are defined in the Deployment
 ```
 
-### Performance Test Failing
+### TLS certificate not issuing
 ```bash
-# Check k6 job logs
-kubectl logs -n paas-api -l job-name=k6-loadtest
-
-# Verify service endpoint
-kubectl get svc -n paas-api
-
-# Test connectivity from within cluster
-kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- \
-  curl http://paas-api.paas-api.svc.cluster.local:8080/health
+kubectl describe certificate -n paas-api
+kubectl describe certificaterequest -n paas-api
+# Check cert-manager logs
+kubectl logs -n cert-manager -l app=cert-manager
 ```
-
----
-
-## Next Steps
-
-Week 5-6 will add:
-- **Web UI**: Vue.js dashboard for visual management
-- **Ingress**: External access with TLS termination
-- **Monitoring**: Prometheus and Grafana integration
-- **Logging**: Centralized logging with Loki
-- **Alerting**: Proactive incident detection
 
 ---
 
 ## Resources
 
-- [Go HTTP Server Tutorial](https://go.dev/doc/tutorial/web-service-gin)
+- [Echo Framework](https://echo.labstack.com/)
+- [golang-jwt/jwt](https://github.com/golang-jwt/jwt)
 - [OpenAPI Specification](https://swagger.io/specification/)
 - [Kubernetes Go Client](https://github.com/kubernetes/client-go)
-- [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
+- [CloudNativePG](https://cloudnative-pg.io/)
+- [HPA Documentation](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
 - [k6 Load Testing](https://k6.io/docs/)
-- [Docker Multi-Stage Builds](https://docs.docker.com/build/building/multi-stage/)
-- [GitOps with ArgoCD](https://argo-cd.readthedocs.io/)
+- [Vue.js](https://vuejs.org/)
+- [Pinia](https://pinia.vuejs.org/)
+- [Vite](https://vitejs.dev/)
+- [cert-manager](https://cert-manager.io/)
+- [ArgoCD](https://argo-cd.readthedocs.io/)

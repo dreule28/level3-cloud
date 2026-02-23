@@ -17,22 +17,22 @@ Building a complete cloud platform stack from scratch - starting with OpenStack 
 Layered approach from infrastructure to application:
 
 ```
-┌─────────────────────────────────────────────────┐
-│         Week 5-6: UI + Observability            │
-│    (Web UI, Ingress, Monitoring, Logging)       │
-├─────────────────────────────────────────────────┤
-│           Week 4: RESTful API Layer             │
-│         (Product Management API)                │
-├─────────────────────────────────────────────────┤
-│        Week 3: PaaS Product on SKE              │
-│    (Operators, CRDs, Managed Services)          │
-├─────────────────────────────────────────────────┤
-│       Week 2: Kubernetes on OpenStack           │
-│      (IaC with Terraform + Ansible)             │
-├─────────────────────────────────────────────────┤
-│        Week 1: IaaS with OpenStack              │
-│           (DevStack Installation)               │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│          Week 5: Web UI + Ingress + TLS                     │
+│  (Vue.js SPA, nginx Ingress, cert-manager, GitOps deploy)  │
+├─────────────────────────────────────────────────────────────┤
+│             Week 4: RESTful API Layer                       │
+│  (Go + Echo, JWT Auth, OpenAPI, HPA, k6, GitOps deploy)    │
+├─────────────────────────────────────────────────────────────┤
+│           Week 3: PaaS Product on SKE                       │
+│      (Operators, CRDs, Managed PostgreSQL Service)          │
+├─────────────────────────────────────────────────────────────┤
+│          Week 2: Kubernetes on OpenStack                    │
+│           (IaC with Terraform + Ansible)                    │
+├─────────────────────────────────────────────────────────────┤
+│           Week 1: IaaS with OpenStack                       │
+│                (DevStack Installation)                      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Progress
@@ -51,13 +51,15 @@ Provisioning SKE cluster with STACKIT Terraform Provider, deploying Kubernetes O
 
 ### Week 4: Provisioning and Interaction via RESTful API ✓
 
-Building production-ready RESTful API for PaaS product management with OpenAPI specification, unit tests, containerization, GitOps deployment, and auto-scaling with HPA.
+Go + Echo RESTful API with JWT authentication (HS256, role-based), OpenAPI 3.0 spec, unit tests with mock service, Docker image pushed to STACKIT Container Registry, GitOps deployment via ArgoCD, HPA (1–10 replicas), and k6 performance tests.
 
-→ [Documentation](Week_4/README.md)
+→ [Documentation](Week_4+5/README.md)
 
-### Week 5-6: UI + Observability (Planned)
+### Week 5: Web UI and Secure Public Access ✓
 
-Web UI development with Vue.js, Ingress configuration, monitoring with Prometheus and Grafana, centralized logging with Loki.
+Vue.js SPA with Pinia state management, JWT-authenticated Axios client, Vue Router auth guards, GSAP animations. Deployed on SKE behind nginx Ingress with TLS (cert-manager / Let's Encrypt) on public STACKIT subdomains. Automated via ArgoCD GitOps.
+
+→ [Documentation](Week_4+5/README.md)
 
 ---
 
@@ -65,11 +67,17 @@ Web UI development with Vue.js, Ingress configuration, monitoring with Prometheu
 
 **Infrastructure**: OpenStack (Nova, Neutron, Cinder, Glance), Terraform, Ansible
 
-**Platform**: Kubernetes, STACKIT Kubernetes Engine (SKE), Kubernetes Operators, Custom Resource Definitions
+**Platform**: Kubernetes, STACKIT Kubernetes Engine (SKE), Kubernetes Operators, Custom Resource Definitions, CloudNativePG
 
-**Development**: Go RESTful APIs, Docker, OpenAPI, k6 Performance Testing, Horizontal Pod Autoscaler
+**API**: Go, Echo, JWT (HS256), OpenAPI 3.0, Docker, STACKIT Container Registry
 
-**Planned**: Vue.js UI, Ingress, Prometheus, Grafana, Loki
+**Scalability**: Horizontal Pod Autoscaler, k6 Performance Testing
+
+**UI**: Vue.js, Vite, Pinia, Vue Router, Axios, GSAP
+
+**Networking**: nginx Ingress Controller, cert-manager, Let's Encrypt TLS
+
+**GitOps**: ArgoCD (automated sync, self-heal, pruning)
 
 ## What You'll Learn
 
