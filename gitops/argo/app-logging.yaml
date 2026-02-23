@@ -5,28 +5,39 @@ metadata:
   namespace: argocd
 spec:
   project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 6.0.0
+    chart: loki
+    helm:
+      valueFiles: []
+      values: |
+        deploymentMode: SingleBinary
+        loki:
+          auth_enabled: false
+          commonConfig:
+            replication_factor: 1
+          storage:
+            type: filesystem
+        singleBinary:
+          replicas: 1
+          persistence:
+            enabled: false
+        backend:
+          replicas: 0
+        read:
+          replicas: 0
+        write:
+          replicas: 0
+        chunksCache:
+          enabled: false
+        resultsCache:
+          enabled: false
+        promtail:
+          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: logging
-  sources:
-    - repoURL: https://grafana.github.io/helm-charts
-      chart: loki
-      targetRevision: 6.0.0
-      helm:
-        releaseName: loki
-        values: |
-          loki:
-            auth_enabled: false
-            useTestSchema: true
-    - repoURL: https://grafana.github.io/helm-charts
-      chart: promtail
-      targetRevision: 6.15.0
-      helm:
-        releaseName: promtail
-        values: |
-          config:
-            clients:
-              - url: http://loki.logging.svc.cluster.local:3100/loki/api/v1/push
   syncPolicy:
     automated:
       prune: true
