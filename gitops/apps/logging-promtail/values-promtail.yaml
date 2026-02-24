@@ -1,3 +1,13 @@
 config:
   clients:
     - url: http://logging-loki-gateway.logging.svc.cluster.local/loki/api/v1/push
+
+  scrape_configs:
+    - job_name: kubernetes-pods
+      kubernetes_sd_configs:
+        - role: pod
+      relabel_configs:
+        # drop kube-system, monitoring, cert-manager, ingress-nginx, argocd namespaces
+        - source_labels: [__meta_kubernetes_namespace]
+          regex: "kube-system|monitoring|cert-manager|ingress-nginx|argocd"
+          action: drop
