@@ -54,8 +54,6 @@ spec:
           enabled: false
         gateway:
           replicas: 1
-        promtail:
-          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: logging
