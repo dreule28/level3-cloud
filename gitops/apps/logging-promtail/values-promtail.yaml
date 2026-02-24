@@ -1,4 +1,7 @@
 config:
+  client:
+    batch-wait: 5s
+    batch-size-bytes: 131072
   clients:
     - url: http://logging-loki-gateway.logging.svc.cluster.local/loki/api/v1/push
 
