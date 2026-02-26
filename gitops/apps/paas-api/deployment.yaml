@@ -21,10 +21,16 @@ spec:
         runAsNonRoot: true
       containers:
         - name: api
-          image: registry.onstackit.cloud/scr-daniel/paas-api:a04adf7
+          image: registry.onstackit.cloud/scr-daniel/paas-api:04f4c86
           imagePullPolicy: Always
+          env:
+            - name: LOG_STORE_PATH
+              value: /data/logs.jsonl
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - name: api-logs
+              mountPath: /data
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -36,3 +42,6 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      volumes:
+        - name: api-logs
+          emptyDir: {}

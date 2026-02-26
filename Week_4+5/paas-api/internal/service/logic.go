@@ -30,14 +30,17 @@ type InstanceService struct {
 }
 
 func NewInstanceService(cfg config.Config, k *kube.Client) *InstanceService {
+	var sink logstore.LogStore
 	ls, err := logstore.NewFileLogStore(cfg.LogsPath)
 	if err != nil {
 		log.Printf("log store disabled: %v", err)
+	} else {
+		sink = ls
 	}
 	return &InstanceService{
 		cfg:       cfg,
 		k:         k,
-		logs:      ls,
+		logs:      sink,
 		statusMap: map[string]string{},
 	}
 }
@@ -206,9 +209,9 @@ func (s *InstanceService) recordStatusChange(instanceID, status string) {
 	}
 
 	s.statusMu.Lock()
+	defer s.statusMu.Unlock()
 	prev, ok := s.statusMap[instanceID]
 	if ok && prev == status {
-		s.statusMu.Unlock()
 		return
 	}
 
@@ -219,7 +222,6 @@ func (s *InstanceService) recordStatusChange(instanceID, status string) {
 	if err := s.recordServiceLog(instanceID, "status.changed", msg); err == nil {
 		s.statusMap[instanceID] = status
 	}
-	s.statusMu.Unlock()
 }
 
 func (s *InstanceService) recordServiceLog(instanceID, action, message string) error {
