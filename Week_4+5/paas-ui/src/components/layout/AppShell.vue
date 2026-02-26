@@ -18,6 +18,7 @@ let clockInterval;
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: "◈" },
   { path: "/instances", label: "Instances", icon: "⬡" },
+  { path: "/logs", label: "Logs", icon: "□" },
 ];
 
 function updateClock() {

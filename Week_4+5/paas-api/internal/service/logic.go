@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/dreule28/Week_4/paas-api/internal/config"
 	"github.com/dreule28/Week_4/paas-api/internal/kube"
 	"github.com/dreule28/Week_4/paas-api/internal/model"
+	logstore "github.com/dreule28/Week_4/paas-api/internal/store"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,12 +22,24 @@ import (
 )
 
 type InstanceService struct {
-	cfg	config.Config
-	k	*kube.Client
+	cfg       config.Config
+	k         *kube.Client
+	logs      logstore.LogStore
+	statusMu  sync.Mutex
+	statusMap map[string]string
 }
 
 func NewInstanceService(cfg config.Config, k *kube.Client) *InstanceService {
-	return &InstanceService{cfg: cfg, k: k}
+	ls, err := logstore.NewFileLogStore(cfg.LogsPath)
+	if err != nil {
+		log.Printf("log store disabled: %v", err)
+	}
+	return &InstanceService{
+		cfg:       cfg,
+		k:         k,
+		logs:      ls,
+		statusMap: map[string]string{},
+	}
 }
 
 func getStatus(c *cnpgv1.Cluster) string {
@@ -47,10 +63,12 @@ func (s *InstanceService) ListDatabases(ctx context.Context) ([]model.Instance, 
 	}
 	out := make([]model.Instance, 0, len(clusters.Items))
 	for _, c := range clusters.Items {
+		status := getStatus(&c)
 		out = append(out, model.Instance{
 			ID:     c.Name,
-			Status: getStatus(&c),
+			Status: status,
 		})
+		s.recordStatusChange(c.Name, status)
 	}
 	return out, nil
 }
@@ -68,6 +86,7 @@ func (s *InstanceService) GetDatabase(ctx context.Context, id string) (model.Ins
 		return model.InstanceDetails{}, err
 	}
 	status := getStatus(&cluster)
+	s.recordStatusChange(id, status)
 	out := model.InstanceDetails{
 		ID:     id,
 		Status: status,
@@ -127,6 +146,12 @@ func (s *InstanceService) CreateDatabase(ctx context.Context, req model.CreateIn
 		}
 		return model.Instance{}, err
 	}
+	s.recordServiceLog(
+		req.ID,
+		"instance.create.accepted",
+		fmt.Sprintf("Service accepted create request and submitted cluster resource (replicas=%d, storageGi=%d)", req.Instances, req.StorageGi),
+	)
+	s.recordStatusChange(req.ID, "creating")
 	return model.Instance{
 		ID:     req.ID,
 		Status: "creating",
@@ -144,6 +169,75 @@ func (s *InstanceService) DeleteDatabase(ctx context.Context, id string) error {
 		}
 		return err
 	}
+	s.recordServiceLog(id, "instance.delete.accepted", "Service accepted delete request and submitted cluster deletion")
+	s.statusMu.Lock()
+	delete(s.statusMap, id)
+	s.statusMu.Unlock()
 	return nil
 }
 
+func (s *InstanceService) ListInstanceLogs(_ context.Context, q model.LogQuery) ([]model.LogEntry, error) {
+	if s.logs == nil {
+		return []model.LogEntry{}, nil
+	}
+	return s.logs.List(q)
+}
+
+func (s *InstanceService) RecordAuditLog(_ context.Context, instanceID, user, action, message string) error {
+	if user == "" {
+		user = "unknown"
+	}
+	if message == "" {
+		message = action
+	}
+	_, err := s.appendLog(model.LogEntry{
+		InstanceID: instanceID,
+		Type:       model.LogTypeAudit,
+		Action:     action,
+		Message:    message,
+		User:       user,
+	})
+	return err
+}
+
+func (s *InstanceService) recordStatusChange(instanceID, status string) {
+	if instanceID == "" || status == "" {
+		return
+	}
+
+	s.statusMu.Lock()
+	prev, ok := s.statusMap[instanceID]
+	if ok && prev == status {
+		s.statusMu.Unlock()
+		return
+	}
+
+	msg := fmt.Sprintf("Platform observed status=%s", status)
+	if ok {
+		msg = fmt.Sprintf("Platform observed status transition %s -> %s", prev, status)
+	}
+	if err := s.recordServiceLog(instanceID, "status.changed", msg); err == nil {
+		s.statusMap[instanceID] = status
+	}
+	s.statusMu.Unlock()
+}
+
+func (s *InstanceService) recordServiceLog(instanceID, action, message string) error {
+	_, err := s.appendLog(model.LogEntry{
+		InstanceID: instanceID,
+		Type:       model.LogTypeService,
+		Action:     action,
+		Message:    message,
+	})
+	return err
+}
+
+func (s *InstanceService) appendLog(entry model.LogEntry) (model.LogEntry, error) {
+	if s.logs == nil {
+		return model.LogEntry{}, nil
+	}
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+	return s.logs.Append(entry)
+}

@@ -13,3 +13,7 @@ type InstanceAPI interface {
 	DeleteDatabase(ctx context.Context, id string) error
 }
 
+type LogsAPI interface {
+	ListInstanceLogs(ctx context.Context, q model.LogQuery) ([]model.LogEntry, error)
+	RecordAuditLog(ctx context.Context, instanceID, user, action, message string) error
+}

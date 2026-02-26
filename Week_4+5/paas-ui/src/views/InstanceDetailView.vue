@@ -2,9 +2,10 @@
   InstanceDetailView — GSAP-animated connection info + timeline + copy-to-clipboard + toast
 -->
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInstanceStore } from "@/stores/instances";
+import { getInstanceLogs } from "@/api/logs";
 import { useToast } from "@/composables/useToast";
 import GlassCard from "@/components/ui/GlassCard.vue";
 import StatusPill from "@/components/ui/StatusPill.vue";
@@ -17,16 +18,236 @@ const router = useRouter();
 const toast = useToast();
 const showPassword = ref(false);
 const copied = ref("");
+const logs = ref([]);
+const logsLoading = ref(false);
+const logsError = ref("");
+const logType = ref("all");
+const POLL_INTERVAL_MS = 3000;
+const LOG_LIMIT = 100;
+const logTypeOptions = [
+  { label: "All", value: "all" },
+  { label: "Audit", value: "audit" },
+  { label: "Service", value: "service" },
+];
 
 const id = computed(() => route.params.id);
+const normalizedStatus = computed(
+  () => store.currentInstance?.status?.toLowerCase() || ""
+);
+const shouldAutoRefresh = computed(() => {
+  const inst = store.currentInstance;
+  if (!inst || inst.id !== id.value) return false;
 
-onMounted(() => store.fetchInstance(id.value));
+  const status = (inst.status || "").toLowerCase();
+  if (status === "error") return false;
+  if (status === "ready") return !inst.connection;
 
-function copy(text, label) {
-  navigator.clipboard.writeText(text);
-  copied.value = label;
-  toast.success(`${label} copied to clipboard`);
-  setTimeout(() => (copied.value = ""), 2000);
+  return ["creating", "pending", "provisioning", "requested"].includes(status);
+});
+let pollTimer = null;
+let pollInFlight = false;
+
+watch(
+  id,
+  async (nextId, prevId) => {
+    if (!nextId) return;
+    if (nextId !== prevId) {
+      showPassword.value = false;
+      copied.value = "";
+      logs.value = [];
+      logsError.value = "";
+      stopPolling();
+    }
+    await Promise.allSettled([store.fetchInstance(nextId), fetchLogs({ silent: false })]);
+  },
+  { immediate: true }
+);
+
+watch(logType, () => {
+  if (!id.value) return;
+  void fetchLogs();
+});
+
+watch(
+  shouldAutoRefresh,
+  (enabled) => {
+    if (enabled) {
+      startPolling();
+      return;
+    }
+    stopPolling();
+  },
+  { immediate: true }
+);
+
+onUnmounted(stopPolling);
+
+function startPolling() {
+  if (pollTimer) return;
+  void pollInstance();
+  pollTimer = window.setInterval(() => {
+    void pollInstance();
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+  pollInFlight = false;
+}
+
+async function pollInstance() {
+  if (pollInFlight || !id.value) return;
+  pollInFlight = true;
+  try {
+    await Promise.allSettled([store.fetchInstance(id.value), fetchLogs({ silent: true })]);
+  } finally {
+    pollInFlight = false;
+  }
+}
+
+async function fetchLogs({ silent = false } = {}) {
+  if (!id.value) return;
+
+  if (!silent) {
+    logsLoading.value = true;
+  }
+  logsError.value = "";
+
+  try {
+    const payload = await getInstanceLogs(id.value, {
+      type: logType.value === "all" ? "" : logType.value,
+      limit: LOG_LIMIT,
+    });
+    logs.value = normalizeLogsPayload(payload);
+  } catch (e) {
+    logsError.value = e.response?.data?.error || e.message || "Failed to load logs";
+  } finally {
+    if (!silent) {
+      logsLoading.value = false;
+    }
+  }
+}
+
+function normalizeLogsPayload(payload) {
+  if (payload == null) {
+    return [];
+  }
+
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.items)
+      ? payload.items
+      : Array.isArray(payload?.logs)
+        ? payload.logs
+        : Array.isArray(payload?.entries)
+          ? payload.entries
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : null;
+
+  if (!list) {
+    if (typeof payload === "string") {
+      const looksHtml = payload.includes("<html") || payload.includes("<!doctype html");
+      throw new Error(
+        looksHtml
+          ? "Logs endpoint returned HTML (likely old backend/proxy response)"
+          : "Unexpected logs response format (string)"
+      );
+    }
+
+    if (payload && typeof payload === "object") {
+      if (payload.error) {
+        throw new Error(String(payload.error));
+      }
+      if (payload.message) {
+        throw new Error(String(payload.message));
+      }
+
+      // Last-resort support for object maps with numeric keys.
+      const values = Object.values(payload);
+      if (values.length && values.every((v) => v && typeof v === "object")) {
+        return values.map((raw, i) => normalizeLogEntry(raw, i));
+      }
+
+      throw new Error(`Unexpected logs response format (object keys: ${Object.keys(payload).slice(0, 5).join(", ") || "none"})`);
+    }
+
+    throw new Error(`Unexpected logs response format (${typeof payload})`);
+  }
+
+  return list
+    .map((raw, i) => normalizeLogEntry(raw, i))
+    .filter((entry) => entry.type || entry.action || entry.message || entry.timestamp);
+}
+
+function normalizeLogEntry(raw, index) {
+  if (!raw || typeof raw !== "object") {
+    return {
+      id: `raw-${index}`,
+      type: "",
+      action: "",
+      message: String(raw ?? ""),
+      user: "",
+      timestamp: "",
+    };
+  }
+
+  return {
+    id: raw.id ?? raw.ID ?? `log-${index}`,
+    instanceId: raw.instanceId ?? raw.instance_id ?? raw.InstanceID ?? "",
+    type: raw.type ?? raw.Type ?? "",
+    action: raw.action ?? raw.Action ?? "",
+    message: raw.message ?? raw.Message ?? "",
+    user: raw.user ?? raw.User ?? "",
+    timestamp: raw.timestamp ?? raw.Timestamp ?? "",
+  };
+}
+
+function legacyCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+  document.body.appendChild(textarea);
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+
+  let copiedOk = false;
+  try {
+    copiedOk = document.execCommand("copy");
+  } catch {
+    copiedOk = false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+
+  return copiedOk;
+}
+
+async function copy(text, label) {
+  const value = String(text ?? "");
+  if (!value) {
+    toast.error(`${label} is empty`);
+    return;
+  }
+
+  try {
+    if (window.isSecureContext && navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+    } else if (!legacyCopy(value)) {
+      throw new Error("Clipboard API unavailable");
+    }
+
+    copied.value = label;
+    toast.success(`${label} copied to clipboard`);
+    setTimeout(() => (copied.value = ""), 2000);
+  } catch {
+    toast.error(`Couldn't copy ${label}. Select the text manually.`);
+  }
 }
 
 const connFields = computed(() => {
@@ -56,6 +277,17 @@ const psqlString = computed(() => {
   if (!c) return "";
   return `psql -h ${c.host} -p ${c.port} -U ${c.user} -d ${c.database}`;
 });
+
+async function refreshNow() {
+  await Promise.allSettled([store.fetchInstance(id.value), fetchLogs({ silent: false })]);
+}
+
+function formatLogTime(value) {
+  if (!value) return "unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString();
+}
 </script>
 
 <template>
@@ -70,12 +302,12 @@ const psqlString = computed(() => {
     </nav>
 
     <!-- Loading -->
-    <div v-if="store.loading" class="space-y-4">
+    <div v-if="store.loading && !store.currentInstance" class="space-y-4">
       <SkeletonLoader :lines="4" height="h-6" />
     </div>
 
     <!-- Error -->
-    <div v-else-if="store.error" class="detail-card rounded-lg border border-neon-red/30 bg-neon-red/10 px-4 py-3 text-sm text-neon-red">
+    <div v-else-if="store.error && !store.currentInstance" class="detail-card rounded-lg border border-neon-red/30 bg-neon-red/10 px-4 py-3 text-sm text-neon-red">
       {{ store.error }}
     </div>
 
@@ -96,9 +328,15 @@ const psqlString = computed(() => {
             </div>
             <div class="mt-3">
               <StatusPill :status="store.currentInstance.status" />
+              <p
+                v-if="shouldAutoRefresh"
+                class="mt-2 text-[11px] font-mono text-gray-500"
+              >
+                Auto-refreshing every 3s while provisioning...
+              </p>
             </div>
           </div>
-          <NeonButton variant="ghost" @click="store.fetchInstance(id)">↻ Refresh</NeonButton>
+          <NeonButton variant="ghost" @click="refreshNow">↻ Refresh</NeonButton>
         </div>
       </GlassCard>
 
@@ -151,11 +389,12 @@ const psqlString = computed(() => {
               <span class="text-base">{{ field.icon }}</span>
               <div>
                 <span class="text-[10px] uppercase tracking-wider text-gray-600">{{ field.label }}</span>
-                <p :class="['text-sm text-white', field.mono && 'font-mono']">{{ field.value }}</p>
+                <p :class="['select-text text-sm text-white', field.mono && 'font-mono']">{{ field.value }}</p>
               </div>
             </div>
             <button
               @click="copy(field.value, field.label)"
+              type="button"
               :class="[
                 'rounded-md border px-3 py-1 text-xs font-medium transition-all duration-200',
                 copied === field.label
@@ -173,7 +412,7 @@ const psqlString = computed(() => {
               <span class="text-base">🔑</span>
               <div>
                 <span class="text-[10px] uppercase tracking-wider text-gray-600">Password</span>
-                <p class="text-sm font-mono text-white">
+                <p class="select-text text-sm font-mono text-white">
                   {{ showPassword ? store.currentInstance.connection.password : '••••••••••••' }}
                 </p>
               </div>
@@ -181,12 +420,14 @@ const psqlString = computed(() => {
             <div class="flex gap-2">
               <button
                 @click="showPassword = !showPassword"
+                type="button"
                 class="rounded-md border border-border px-3 py-1 text-xs font-medium text-gray-500 transition hover:border-neon-purple/50 hover:text-neon-purple"
               >
                 {{ showPassword ? 'Hide' : 'Show' }}
               </button>
               <button
                 @click="copy(store.currentInstance.connection.password, 'Password')"
+                type="button"
                 :class="[
                   'rounded-md border px-3 py-1 text-xs font-medium transition-all duration-200',
                   copied === 'Password'
@@ -206,6 +447,7 @@ const psqlString = computed(() => {
             <span class="text-[10px] uppercase tracking-wider text-gray-600">Quick Connect</span>
             <button
               @click="copy(psqlString, 'psql')"
+              type="button"
               :class="[
                 'text-[10px] font-medium transition',
                 copied === 'psql' ? 'text-neon-green' : 'text-gray-600 hover:text-neon-cyan',
@@ -214,7 +456,7 @@ const psqlString = computed(() => {
               {{ copied === 'psql' ? '✓ Copied' : 'Copy' }}
             </button>
           </div>
-          <code class="block font-mono text-xs text-neon-cyan break-all">{{ psqlString }}</code>
+          <code class="block select-text break-all font-mono text-xs text-neon-cyan">{{ psqlString }}</code>
         </div>
       </GlassCard>
 
@@ -225,10 +467,81 @@ const psqlString = computed(() => {
       >
         <span class="mb-3 text-4xl animate-glow-pulse">⏳</span>
         <p class="text-sm text-gray-500 font-medium">Provisioning in progress</p>
-        <p class="mt-1 text-xs text-gray-600">Connection details appear once the instance is ready.</p>
-        <NeonButton variant="ghost" class="mt-4" @click="store.fetchInstance(id)">
+        <p class="mt-1 text-xs text-gray-600">Connection details appear once the instance is ready. This page auto-refreshes every 3s.</p>
+        <NeonButton variant="ghost" class="mt-4" @click="refreshNow">
           ↻ Check Status
         </NeonButton>
+      </GlassCard>
+
+      <!-- User-facing logs -->
+      <GlassCard class="detail-card p-6">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500">Instance Logs</h3>
+            <p class="mt-1 text-xs text-gray-600">
+              Audit = user-triggered actions. Service = platform/system events (accepted requests, status transitions).
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              v-for="option in logTypeOptions"
+              :key="option.value"
+              type="button"
+              @click="logType = option.value"
+              :class="[
+                'rounded-md border px-3 py-1 text-xs font-medium transition',
+                logType === option.value
+                  ? 'border-neon-cyan/60 bg-neon-cyan/10 text-neon-cyan'
+                  : 'border-border text-gray-500 hover:border-neon-cyan/30 hover:text-white',
+              ]"
+            >
+              {{ option.label }}
+            </button>
+            <NeonButton variant="ghost" @click="fetchLogs()" :loading="logsLoading && logs.length > 0">
+              ↻ Refresh Logs
+            </NeonButton>
+          </div>
+        </div>
+
+        <div v-if="logsError" class="rounded-lg border border-neon-red/30 bg-neon-red/10 px-4 py-3 text-xs text-neon-red">
+          {{ logsError }}
+        </div>
+
+        <div v-else-if="logsLoading && logs.length === 0" class="space-y-3">
+          <SkeletonLoader :lines="4" height="h-5" />
+        </div>
+
+        <div
+          v-else-if="logs.length === 0"
+          class="rounded-lg border border-border/40 bg-void/30 px-4 py-6 text-center text-sm text-gray-500"
+        >
+          No logs yet for this instance.
+        </div>
+
+        <div v-else class="max-h-[26rem] space-y-2 overflow-y-auto pr-1">
+          <div
+            v-for="entry in logs"
+            :key="entry.id"
+            class="rounded-lg border border-border/40 bg-void/35 px-4 py-3"
+          >
+            <div class="flex flex-wrap items-center gap-2">
+              <span
+                :class="[
+                  'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                  entry.type === 'audit'
+                    ? 'border-neon-purple/40 bg-neon-purple/10 text-neon-purple'
+                    : 'border-neon-blue/40 bg-neon-blue/10 text-neon-blue',
+                ]"
+              >
+                {{ entry.type === 'audit' ? 'User' : 'System' }}
+              </span>
+              <span class="font-mono text-[11px] text-gray-500">{{ formatLogTime(entry.timestamp) }}</span>
+              <span class="font-mono text-[11px] text-neon-cyan">{{ entry.action }}</span>
+              <span v-if="entry.user" class="font-mono text-[11px] text-gray-600">user={{ entry.user }}</span>
+            </div>
+            <p class="mt-1 select-text text-sm text-gray-300">{{ entry.message }}</p>
+          </div>
+        </div>
       </GlassCard>
     </template>
   </div>

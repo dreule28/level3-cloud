@@ -2,7 +2,7 @@
   InstancesView — Cyberpunk animated table + GSAP stagger + create/delete modals + toast
 -->
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useInstanceStore } from "@/stores/instances";
 import { useToast } from "@/composables/useToast";
@@ -15,6 +15,10 @@ import SkeletonLoader from "@/components/ui/SkeletonLoader.vue";
 const store = useInstanceStore();
 const router = useRouter();
 const toast = useToast();
+const POLL_INTERVAL_MS = 3000;
+const AUTO_REFRESH_STATUSES = ["creating", "pending", "provisioning", "requested"];
+let pollTimer = null;
+let pollInFlight = false;
 
 // Create modal
 const showCreate = ref(false);
@@ -27,8 +31,51 @@ const creating = ref(false);
 const showDelete = ref(false);
 const deleteTarget = ref(null);
 const deleting = ref(false);
+const hasProvisioningInstances = computed(() =>
+  store.instances.some((inst) =>
+    AUTO_REFRESH_STATUSES.includes((inst.status || "").toLowerCase())
+  )
+);
 
 onMounted(() => store.fetchInstances());
+onUnmounted(stopPolling);
+
+watch(
+  hasProvisioningInstances,
+  (enabled) => {
+    if (enabled) {
+      startPolling();
+      return;
+    }
+    stopPolling();
+  },
+  { immediate: true }
+);
+
+function startPolling() {
+  if (pollTimer) return;
+  void pollInstances();
+  pollTimer = window.setInterval(() => {
+    void pollInstances();
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+  pollInFlight = false;
+}
+
+async function pollInstances() {
+  if (pollInFlight || !hasProvisioningInstances.value) return;
+  pollInFlight = true;
+  try {
+    await store.fetchInstances();
+  } finally {
+    pollInFlight = false;
+  }
+}
 
 async function onCreate() {
   if (!newId.value.trim()) return;
